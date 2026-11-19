@@ -42,9 +42,20 @@ public final class AssemblyGenerationContext {
             throw new IllegalArgumentException("targetArchitecture must not be null or blank");
         }
         Objects.requireNonNull(attributes, "attributes must not be null");
+        Map<String, String> validated = new LinkedHashMap<>(attributes.size());
+        for (Map.Entry<String, String> entry : attributes.entrySet()) {
+            if (entry.getKey() == null || entry.getKey().isBlank()) {
+                throw new IllegalArgumentException("attribute keys must not be null or blank");
+            }
+            if (entry.getValue() == null) {
+                throw new IllegalArgumentException(
+                        "attribute value for key '" + entry.getKey() + "' must not be null");
+            }
+            validated.put(entry.getKey(), entry.getValue());
+        }
         this.targetArchitecture = targetArchitecture.trim();
         this.sectionHint = (sectionHint == null || sectionHint.isBlank()) ? null : sectionHint.trim();
-        this.attributes = Collections.unmodifiableMap(new LinkedHashMap<>(attributes));
+        this.attributes = Collections.unmodifiableMap(validated);
     }
 
     /**

@@ -1,6 +1,6 @@
 # Compiler Architecture — RKCC JavaCompiler
 
-> **Status Notice (Milestone 08):** Shared essential contracts, `AbstractTypeParser`, `TypeRegistry`, `SourceLocation`, `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `Lexer`, and centralized diagnostics (`DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, `CompilerException`) are implemented and unit-tested. **The concrete Parser, concrete AST nodes, Semantic Analyzer, production Type handlers (`byte`..`boolean`, `String`, arrays, reference types), Assembly Generator, and CompilerPipeline are not implemented yet.** Refer to [PROGRESS.md](PROGRESS.md) for verified implementation status.
+> **Status Notice (Milestone 09A):** Shared compiler foundation contracts (`SourceLocation`, `Diagnostic*`, `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `Lexer`, `TypeCategory`, `TypeDescriptor`, `AstNode`, `AssemblyGenerationContext`, `AssemblyBackend`, `AbstractTypeParser`, `TypeRegistry`) are finalized and verified across 62 unit and foundation integration tests. **Production Parser, concrete AST nodes, Semantic Analyzer, production Type handlers (`byte`..`boolean`, `String`, arrays, reference types), Assembly Generator, CompilerPipeline, and CLI remain pending for Milestone 09B+.** Refer to [PROGRESS.md](PROGRESS.md) for the readiness checklist.
 
 ## 1. Overall Compiler Architecture
 
@@ -108,32 +108,21 @@ flowchart LR
 
 ---
 
-## 5. Implemented Essential Contracts & Proposed Future Signatures
+## 5. Implemented Contracts & Provisional Future Signatures
 
-> **Milestone 08 Update:** Added `TypeRegistry` in `rkcc.compiler.core` (placed alongside `AbstractTypeParser` so `rkcc.compiler.types` stays dependency-free and acyclic), added `AbstractTypeParser.getSupportedTypeNames()` for multi-type parsers, and added `isPrimitiveCategory()` / `isReferenceCategory()` / `isVoid()` helpers on `TypeCategory`. Production type parsers remain unimplemented and are demonstrated strictly via test-only implementations in `TypeRegistryTest`.
+> **Milestone 09A Update:** Finalized shared foundation contracts (`AstNode` now exposes `default Optional<SourceLocation> location()`, `AssemblyGenerationContext` validates non-null attribute keys/values, and all foundation integration workflows are verified). Provisional stage drivers (`Parser`, `TypedAstNode`, `SemanticAnalyzer`, `AssemblyArtifact`, `CodeGenerator`, `CompilationResult`, `CompilerPipeline`) remain design proposals awaiting Milestone 09B team alignment.
 
-### Implemented Type Registry, Diagnostics & Lexical Contracts (Milestones 03–08)
+### Finalized Foundation Contracts (Milestones 03–09A)
 
-- **`rkcc.compiler.core.TypeRegistry`**: Session-scoped registry mapping case-sensitive Java type names to `AbstractTypeParser<?>` instances:
-  - **Registration & Validation:** `register(AbstractTypeParser<?>)`, `register(String, AbstractTypeParser<?>)`, `register(Collection<String>, AbstractTypeParser<?>)`, and `register(AbstractTypeParser<?>, DiagnosticCollector)`. Validates parser descriptors/names before modifying internal state (atomic multi-type registration) and rejects duplicates/conflicts with `CompilerException` (`INT_INTERNAL_COMPILER_ERROR`, `CompilerPhase.INTERNAL`).
-  - **Resolution & Lifecycle:** `resolve(String)`, `resolve(String, DiagnosticCollector)`, `resolveRequired(String)`, `resolve(Token)`, `resolve(Token, DiagnosticCollector)`, `supports(String)`, `supports(Token)`, `unregister(String)`, `getRegisteredTypes()`, `getRegisteredParsers()`, `size()`, `isEmpty()`.
-  - **Token-Based Resolution:** Maps Java primitive keywords (`BYTE`..`VOID`) and `IDENTIFIER("String")` to registered parsers while leaving arbitrary identifiers unresolved; reports `TYP_UNSUPPORTED_TYPE` preserving `Token.location()` when a `DiagnosticCollector` is supplied.
-- **`rkcc.compiler.core.AbstractTypeParser<T extends AstNode>`**: Now exposes `getSupportedTypeNames()` (defaulting to `Set.of(getSupportedTypeName())`) so family parsers (e.g., `byte`/`short`/`int`/`long`) integrate cleanly with `TypeRegistry`.
-- **`rkcc.compiler.diagnostics.*`**: `SourceLocation`, `DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, and `CompilerException`.
-- **`rkcc.compiler.lexer.*`**: `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `UnexpectedTokenException`, `Lexer`, and `LexicalException`.
-- **`rkcc.compiler.types.TypeCategory` & `TypeDescriptor`**, **`rkcc.compiler.ast.AstNode`**, and **`rkcc.compiler.core.AssemblyGenerationContext` / `AssemblyBackend`**: Shared compiler stage contracts.
+- **`rkcc.compiler.core.TypeRegistry`**: Session-scoped registry mapping case-sensitive Java type names to `AbstractTypeParser<?>` instances (`register`, atomic multi-type registration, `resolve`, `resolveRequired`, `resolve(Token)`, `supports`, `unregister`, `getRegisteredTypes`, `getRegisteredParsers`, `size`, `isEmpty`).
+- **`rkcc.compiler.core.AbstractTypeParser<T extends AstNode>`**: Extensible base class for type parsing and assembly delegation (`getTypeDescriptor()`, `getSupportedTypeName()`, `getSupportedTypeNames()`, `supports(...)`, `parse(TokenStream)`, `generateAssembly(...)`).
+- **`rkcc.compiler.core.AssemblyBackend` & `AssemblyGenerationContext`**: Backend delegation SPI (`targetName()`, `emitAssembly(AstNode, TypeDescriptor, AssemblyGenerationContext)`).
+- **`rkcc.compiler.ast.AstNode`**: Base AST contract declaring `nodeKind()`, `typeDescriptor()`, and `default Optional<SourceLocation> location()`.
+- **`rkcc.compiler.types.TypeCategory` & `TypeDescriptor`**: Extensible Java type classification and metadata contract.
+- **`rkcc.compiler.diagnostics.*`**: `SourceLocation`, `DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, `CompilerException`.
+- **`rkcc.compiler.lexer.*`**: `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `UnexpectedTokenException`, `Lexer`, `LexicalException`.
 
-### TypeRegistry Integration Usage Example (Test / Future Module Pattern)
-
-```java
-TypeRegistry registry = new TypeRegistry();
-registry.register(customIntParser); // registers e.g. byte, short, int, long atomically
-
-DiagnosticCollector diagnostics = new DiagnosticCollector();
-Optional<AbstractTypeParser<?>> parser = registry.resolve(token, diagnostics);
-```
-
-### Proposed Future Contracts (Not Yet Implemented)
+### Provisional Future Contracts (Not Yet Implemented)
 
 #### Diagnostics (`rkcc.compiler.diagnostics`)
 
@@ -302,7 +291,7 @@ Allowed compile-time dependency direction (strictly acyclic):
 types            -> (no internal compiler dependencies)
 diagnostics      -> (no internal compiler dependencies; owns SourceLocation)
 lexer (contract) -> diagnostics (Token uses SourceLocation; TokenType, TokenStream)
-ast (contract)   -> types
+ast (contract)   -> types, diagnostics (SourceLocation)
 core             -> diagnostics, types, lexer (Token/TokenType/TokenStream), ast (AstNode)
 parser           -> diagnostics, core, lexer, ast
 semantic         -> diagnostics, core, ast, types

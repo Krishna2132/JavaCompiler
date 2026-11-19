@@ -1,132 +1,152 @@
 # Team Contract & Integration Rules — RKCC JavaCompiler
 
-This document defines the module boundaries, shared data contracts, branching rules, and testing expectations enabling **Krishna**, **Jatin**, **Janesh**, and **Riya** to work in parallel and integrate cleanly.
+This document defines module ownership, finalized shared Java contracts, provisional stage boundaries, and testing/integration expectations enabling **Krishna**, **Jatin**, **Janesh**, **Riya**, **Ayush**, and **Ankit** to work independently and integrate cleanly.
 
-> **Status Notice (Milestone 08):** Shared contracts (`SourceLocation`, `DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, `CompilerException`, `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `UnexpectedTokenException`, `Lexer`, `LexicalException`, `TypeCategory`, `TypeDescriptor`, `AstNode`, `AssemblyGenerationContext`, `AssemblyBackend`, `AbstractTypeParser`, `TypeRegistry`) are implemented and verified in Java. Remaining stage contracts (`Parser`, `SemanticAnalyzer`, `CodeGenerator`, `CompilerPipeline`) and concrete production type parsers will be added in upcoming milestones.
+> **Status Notice (Milestone 09A):** All shared foundation contracts below are implemented, finalized, and verified (`mvn clean test` & `mvn clean verify`). Provisional stage-driver interfaces (`Parser`, `SemanticAnalyzer`, `TypedAstNode`, `CodeGenerator`, `CompilerPipeline`) remain design proposals awaiting Milestone 09B team integration alignment.
 
 ---
 
-## 1. Individual Module Responsibilities
+## 1. Finalized Shared Contracts vs. Provisional Contracts
 
-### Krishna — Core Architecture, Lexer, Diagnostics & Integration
-- **Packages:** `rkcc.compiler.core`, `rkcc.compiler.lexer`, `rkcc.compiler.diagnostics`, `rkcc.compiler.integration`
-- **Deliverables:**
-  - Shared stage contracts, `DiagnosticReporter`, `SourceSpan`, `Token`, `TokenStream`, and `AbstractTypeParser` base class.
-  - Lexical analyzer transforming Java source text into `TokenStream`.
-  - `CompilerPipeline` orchestrating Lexer → Parser → Semantic Analyzer → Assembly Generator.
-  - Integration test suite verifying end-to-end compilation.
+### Stable Finalized Contracts (Implemented in Java)
+
+| Package | Implemented Types & Exact Public Signatures |
+| --- | --- |
+| `rkcc.compiler.diagnostics` | `SourceLocation(int line, int column, int offset)` (`START`, `formatCompact()`)<br>`DiagnosticSeverity` (`ERROR`, `WARNING`, `INFO`, `isError()`, `isWarning()`, `isInfo()`)<br>`CompilerPhase` (`LEXICAL_ANALYSIS`, `SYNTAX_ANALYSIS`, `SEMANTIC_ANALYSIS`, `TYPE_CHECKING`, `CODE_GENERATION`, `INTERNAL`, `displayName()`)<br>`DiagnosticCode` (`code()`, `defaultPhase()`, `defaultDescription()`, `fromCode(String)`)<br>`Diagnostic(DiagnosticCode, DiagnosticSeverity, CompilerPhase, String, Optional<SourceLocation>, Optional<String>)` + `error(...)`, `warning(...)`, `info(...)`<br>`DiagnosticCollector` (`report`, `reportError`, `reportWarning`, `reportInfo`, `getDiagnostics`, `getErrors`, `getWarnings`, `getInfoDiagnostics`, `getBySeverity`, `size`, `countBySeverity`, `hasErrors`, `hasWarnings`, `isEmpty`, `clear`)<br>`DiagnosticFormatter` (`format(Diagnostic)`, `format(Diagnostic, String)`, `formatAll(Collection<Diagnostic>, String)`)<br>`CompilerException` (`getDiagnostic()`, `getCode()`, `getPhase()`, `getSourceLocation()`) |
+| `rkcc.compiler.types` | `TypeCategory` (`INTEGRAL`, `FLOATING_POINT`, `BOOLEAN`, `CHAR`, `STRING`, `ARRAY`, `REFERENCE`, `VOID`, `UNKNOWN`, `isPrimitiveCategory()`, `isReferenceCategory()`, `isVoid()`)<br>`TypeDescriptor` (`typeName()`, `category()`, `byteSize()`, `isSigned()`, `isPrimitive()`, `isAssignableTo(TypeDescriptor)`) |
+| `rkcc.compiler.ast` | `AstNode` (`nodeKind()`, `typeDescriptor()`, `default Optional<SourceLocation> location()`) |
+| `rkcc.compiler.lexer` | `TokenType` (`fixedLexeme()`, `category()`, `isPrimitiveTypeKeyword()`, `isLiteral()`, `isArithmeticOperator()`, `isAssignmentOperator()`, `isBitwiseOperator()`, `isComparisonOperator()`, `isLogicalOperator()`, `fromKeyword(String)`)<br>`Token(TokenType type, String lexeme, SourceLocation location)` (`Token.eof(SourceLocation)`, `is(TokenType)`, `isPrimitiveTypeKeyword()`)<br>`TokenStream` (`peek()`, `peek(int)`, `advance()`, `previous()`, `check(TokenType)`, `match(TokenType)`, `match(TokenType...)`, `consume(TokenType, String)`, `consume(TokenType, String, DiagnosticCollector)`, `isAtEnd()`, `position()`)<br>`ListTokenStream(List<Token>)`<br>`Lexer` (`tokenize(String)`, `tokenize(String, DiagnosticCollector)`, `tokenizeToStream(String)`, `tokenizeToStream(String, DiagnosticCollector)`)<br>`LexicalException`, `UnexpectedTokenException` (both extend `CompilerException`) |
+| `rkcc.compiler.core` | `AssemblyGenerationContext` (`getTargetArchitecture()`, `getSectionHint()`, `getAttributes()`)<br>`AssemblyBackend` (`targetName()`, `emitAssembly(AstNode, TypeDescriptor, AssemblyGenerationContext)`)<br>`AbstractTypeParser<T extends AstNode>` (`getTypeDescriptor()`, `getSupportedTypeName()`, `getSupportedTypeNames()`, `supports(String)`, `supports(TokenStream)`, `requireSupportedType(String)`, `parse(TokenStream)`, `getAssemblyBackend()`, `generateAssembly(T, AssemblyGenerationContext)`, `generateAssembly(T, AssemblyGenerationContext, AssemblyBackend)`)<br>`TypeRegistry` (`register(AbstractTypeParser<?>)`, `register(String, AbstractTypeParser<?>)`, `register(Collection<String>, AbstractTypeParser<?>)`, `register(AbstractTypeParser<?>, DiagnosticCollector)`, `resolve(String)`, `resolve(String, DiagnosticCollector)`, `resolveRequired(String)`, `resolve(Token)`, `resolve(Token, DiagnosticCollector)`, `supports(String)`, `supports(Token)`, `unregister(String)`, `getRegisteredTypes()`, `getRegisteredParsers()`, `size()`, `isEmpty()`) |
+
+### Provisional Stage Interfaces (Pending Team Alignment in Milestone 09B)
+
+The following stage driver contracts remain architectural proposals in [ARCHITECTURE.md](ARCHITECTURE.md#5-implemented-contracts--provisional-future-signatures) and are **not yet Java files**:
+- `Parser` (`rkcc.compiler.parser`)
+- `TypedAstNode`, `SemanticAnalyzer` (`rkcc.compiler.semantic`)
+- `AssemblyArtifact`, `CodeGenerator` (`rkcc.compiler.codegen`)
+- `CompilationResult`, `CompilerPipeline` (`rkcc.compiler.integration`)
+
+---
+
+## 2. Detailed Team Module Contracts
+
+### Krishna — Compiler Core, Lexer, Diagnostics & Integration
+- **Expected Packages:** `rkcc.compiler.core`, `rkcc.compiler.lexer`, `rkcc.compiler.diagnostics`, `rkcc.compiler.integration`
+- **Responsibilities:** Shared architecture, `AbstractTypeParser`, `TypeRegistry`, `Token`, `TokenType`, `TokenStream`, `ListTokenStream`, `Lexer`, diagnostics (`Diagnostic*`, `SourceLocation`, `CompilerException`), future `CompilerPipeline` and CLI.
+- **Expected Input / Output:** Source `String` → `List<Token>` / `TokenStream` + `DiagnosticCollector` diagnostics.
+- **Dependencies:** `diagnostics` (root), `types`, `ast` (`AstNode` contract).
+- **Testing Requirements:** Unit tests for lexer, token stream, diagnostics, registry, `AbstractTypeParser`, and foundation integration tests (`src/test/java/rkcc/compiler/integration/`).
 
 ### Jatin — Parser & Abstract Syntax Tree
-- **Packages:** `rkcc.compiler.parser`, `rkcc.compiler.ast`
-- **Deliverables:**
-  - AST node hierarchy (`CompilationUnit`, declarations, statements, expressions) with `SourceSpan` tracking and visitor support.
-  - Parser consuming `TokenStream`, delegating type-specific constructs to registered `AbstractTypeParser` handlers, and emitting syntax diagnostics.
-  - Unit tests covering valid grammar structures and syntax error recovery.
+- **Expected Packages:** `rkcc.compiler.parser`, `rkcc.compiler.ast`
+- **Responsibilities:** Syntax analysis, variable declarations, assignment statements, arithmetic expressions, operator precedence, AST construction.
+- **Shared Interfaces Consumed/Implemented:** `TokenStream`, `Token`, `TokenType`, `TypeRegistry`, `AbstractTypeParser`, `AstNode`, `DiagnosticCollector`, `DiagnosticCode` (`SYN001`–`SYN004`), `SourceLocation`.
+- **Required Method Signatures (Actual Contracts Used):**
+  - `TokenStream.peek()`, `TokenStream.advance()`, `TokenStream.match(TokenType...)`, `TokenStream.consume(TokenType, String, DiagnosticCollector)`
+  - `TypeRegistry.resolve(Token, DiagnosticCollector)`
+  - `AstNode`: `nodeKind()`, `typeDescriptor()`, `location()`
+- **Expected Input / Output:** `TokenStream` (+ `TypeRegistry` & `DiagnosticCollector`) → root `AstNode` tree (carrying `SourceLocation` on nodes).
+- **Error-Handling Requirements:** Report syntax errors (`SYN_UNEXPECTED_TOKEN`, `SYN_EXPECTED_TOKEN_MISSING`, `SYN_UNEXPECTED_END_OF_INPUT`, `SYN_INVALID_EXPRESSION`) via `DiagnosticCollector` / `UnexpectedTokenException` without swallowing `CompilerException`s.
+- **Dependencies:** `diagnostics`, `lexer`, `core`, `ast`, `types`.
+- **Testing Requirements:** JUnit 5 tests under `src/test/java/rkcc/compiler/parser/` and `ast/` covering valid grammar, precedence, `AbstractTypeParser` delegation, and syntax error reporting.
+- **Integration Example:**
+  ```java
+  Optional<AbstractTypeParser<?>> typeParser = registry.resolve(tokens.peek(), diagnostics);
+  AstNode declType = typeParser.map(p -> p.parse(tokens)).orElse(null);
+  Token name = tokens.consume(TokenType.IDENTIFIER, "Expected variable name", diagnostics);
+  ```
 
-### Janesh — Type System & Semantic Analysis
-- **Packages:** `rkcc.compiler.types`, `rkcc.compiler.semantic`
-- **Deliverables:**
-  - Initial integer/integral type system built atop the shared `TypeDescriptor` contract, extensible to all future Java types.
-  - Symbol table and lexical/block scope resolution.
-  - Semantic validator checking declarations, scope rules, and type compatibility, producing `TypedAstNode` / `TypedCompilationUnit`.
-  - Unit tests covering valid semantic resolution and type/scope error diagnostics.
+### Janesh — Semantic Analysis & Integer Type System
+- **Expected Packages:** `rkcc.compiler.semantic`, `rkcc.compiler.types`
+- **Responsibilities:** Integer type representation (`byte`, `short`, `int`, `long`, `char`), symbol table, type checking, numeric range validation, type promotion, type conversion, semantic validation.
+- **Shared Interfaces Consumed/Implemented:** `TypeDescriptor`, `TypeCategory`, `AbstractTypeParser` (if providing integral type parser), `AstNode`, `DiagnosticCollector`, `DiagnosticCode` (`SEM001`–`SEM006`), `SourceLocation`.
+- **Required Method Signatures (Actual Contracts Used):**
+  - Implement `TypeDescriptor`: `typeName()`, `category()`, `byteSize()`, `isSigned()`, `isPrimitive()`, `isAssignableTo(TypeDescriptor)`
+  - Inspect `AstNode`: `nodeKind()`, `typeDescriptor()`, `location()`
+  - Report via `DiagnosticCollector.reportError(DiagnosticCode, String, SourceLocation)`
+- **Expected Input / Output:** `AstNode` tree + `DiagnosticCollector` → validated typed AST / symbol metadata.
+- **Error-Handling Requirements:** Report `SEM_UNDEFINED_VARIABLE`, `SEM_DUPLICATE_DECLARATION`, `TYP_TYPE_MISMATCH`, `TYP_INVALID_CONVERSION`, `TYP_UNSUPPORTED_TYPE`, `TYP_INTEGER_OUT_OF_RANGE` with `AstNode.location().orElse(null)`.
+- **Dependencies:** `diagnostics`, `types`, `ast`, `core`.
+- **Testing Requirements:** JUnit 5 tests under `src/test/java/rkcc/compiler/types/` and `semantic/` verifying integral range bounds, promotions, scope rules, and semantic error diagnostics.
+- **Integration Example:**
+  ```java
+  if (!lhsType.isAssignableTo(rhsType)) {
+      diagnostics.reportError(DiagnosticCode.TYP_TYPE_MISMATCH,
+              "Cannot assign " + rhsType.typeName() + " to " + lhsType.typeName(),
+              node.location().orElse(null));
+  }
+  ```
 
-### Riya — x86 Assembly Generation
-- **Packages:** `rkcc.compiler.codegen`
-- **Deliverables:**
-  - Assembly emitter translating `TypedAstNode` / `TypedCompilationUnit` into x86 assembly text (`AssemblyArtifact`).
-  - Stack/register allocation strategy for the agreed integral-language subset.
-  - Unit tests verifying deterministic assembly emission from mock/stub `TypedAstNode` trees.
-  - *Note:* Linux x86-64 with NASM syntax is currently a **proposed** target pending supervisor confirmation.
+### Riya — x86 Assembly Backend
+- **Expected Package:** `rkcc.compiler.codegen`
+- **Responsibilities:** Assembly generation, register allocation, memory/stack allocation, instruction selection, arithmetic & bitwise lowering, assembly output. *(Linux x86-64 NASM syntax remains proposed pending supervisor confirmation.)*
+- **Shared Interfaces Consumed/Implemented:** `AssemblyBackend`, `AssemblyGenerationContext`, `AstNode`, `TypeDescriptor`, `TypeCategory`, `DiagnosticCollector`, `DiagnosticCode` (`GEN001`–`GEN003`).
+- **Required Method Signatures (Actual Contracts Used):**
+  - Implement `AssemblyBackend`: `String targetName()` and `String emitAssembly(AstNode node, TypeDescriptor typeDescriptor, AssemblyGenerationContext context)`
+  - Read `AssemblyGenerationContext.getTargetArchitecture()`, `getSectionHint()`, `getAttributes()`
+- **Expected Input / Output:** Validated `AstNode` + `TypeDescriptor` + `AssemblyGenerationContext` → non-blank x86 assembly `String`.
+- **Error-Handling Requirements:** Report `GEN_UNSUPPORTED_OPERATION`, `GEN_INVALID_ASSEMBLY_OPERAND`, `GEN_UNSUPPORTED_TARGET` via `DiagnosticCollector` / `CompilerException` rather than emitting invalid instructions.
+- **Dependencies:** `diagnostics`, `core`, `types`, `ast` (and `semantic` when `TypedAstNode` is introduced). Must **never** depend on `lexer` or `parser`.
+- **Testing Requirements:** JUnit 5 tests under `src/test/java/rkcc/compiler/codegen/` using test `AstNode` and `TypeDescriptor` doubles.
+- **Integration Example:**
+  ```java
+  public final class X86AssemblyBackend implements AssemblyBackend {
+      @Override public String targetName() { return "x86_64-nasm-proposed"; }
+      @Override public String emitAssembly(AstNode node, TypeDescriptor type, AssemblyGenerationContext ctx) {
+          // Lower validated node using type.byteSize() and type.isSigned()
+          return "...";
+      }
+  }
+  ```
+
+### Ayush — String Type Module
+- **Expected Package:** `rkcc.compiler.types` (or dedicated subpackage coordinated via `TypeRegistry`)
+- **Responsibilities:** `String` type parsing (`AbstractTypeParser`), `String` descriptor (`TypeCategory.STRING`, `isPrimitive() == false`), `String`-specific validation and backend delegation.
+- **Shared Interfaces Consumed/Implemented:** `AbstractTypeParser<T>`, `TypeDescriptor`, `TypeCategory.STRING`, `TokenStream`, `TokenType.IDENTIFIER` (`"String"`), `TokenType.STRING_LITERAL`, `TypeRegistry`, `AssemblyBackend`, `DiagnosticCollector`.
+- **Expected Input / Output:** `TokenStream` positioned at `"String"` / `STRING_LITERAL` → `AstNode` (`location()`, `typeDescriptor()`) + delegated assembly via `generateAssembly(...)`.
+- **Error-Handling Requirements:** Report `TYP_TYPE_MISMATCH` / `TYP_UNSUPPORTED_TYPE` via `DiagnosticCollector`.
+- **Testing Requirements:** JUnit 5 tests verifying `TypeRegistry.register(stringParser)` and `registry.resolve(new Token(TokenType.IDENTIFIER, "String", loc))`.
+- **Integration Example:**
+  ```java
+  registry.register(stringTypeParser);
+  Optional<AbstractTypeParser<?>> p = registry.resolve(new Token(TokenType.IDENTIFIER, "String", loc));
+  ```
+
+### Ankit — Boolean Type Module
+- **Expected Package:** `rkcc.compiler.types` (or dedicated subpackage coordinated via `TypeRegistry`)
+- **Responsibilities:** `boolean` type parsing (`AbstractTypeParser`), logical operations (`&&`, `||`, `!`), boolean expressions, boolean-specific validation and backend delegation.
+- **Shared Interfaces Consumed/Implemented:** `AbstractTypeParser<T>`, `TypeDescriptor`, `TypeCategory.BOOLEAN`, `TokenStream`, `TokenType.BOOLEAN` / `TRUE` / `FALSE`, `TypeRegistry`, `AssemblyBackend`, `DiagnosticCollector`.
+- **Expected Input / Output:** `TokenStream` positioned at `boolean` / boolean expression → `AstNode` (`location()`, `typeDescriptor()`) + delegated assembly via `generateAssembly(...)`.
+- **Error-Handling Requirements:** Report `TYP_TYPE_MISMATCH` / `TYP_INVALID_CONVERSION` via `DiagnosticCollector`.
+- **Testing Requirements:** JUnit 5 tests verifying `TypeRegistry.register(booleanParser)` and `registry.resolve(new Token(TokenType.BOOLEAN, "boolean", loc))`.
+- **Integration Example:**
+  ```java
+  registry.register(booleanTypeParser);
+  Optional<AbstractTypeParser<?>> p = registry.resolve(new Token(TokenType.BOOLEAN, "boolean", loc));
+  ```
 
 ---
 
-## 2. Proposed Shared Interfaces & Data Exchange
+## 3. Data Exchange & Integration Rules
 
-Modules exchange data strictly via the following boundaries:
-
-| Boundary | Producer | Consumer | Exchanged Contract |
+| Boundary | Producer | Consumer | Actual Exchanged Contract |
 | --- | --- | --- | --- |
-| Source → Lexer | `integration` | `lexer` | `(String sourceName, String sourceCode)` |
-| Lexer → Parser | `lexer` | `parser` | `TokenStream` (yielding immutable `Token` records with `SourceSpan`) |
-| Core ↔ Parser | `core` | `parser` | `AbstractTypeParser` / `TypeParserRegistry` |
-| Parser → Semantic | `parser` | `semantic` | `AstNode` (`CompilationUnit`) |
-| Types ↔ Semantic/Codegen | `types` | `semantic`, `codegen` | `TypeDescriptor`, `TypeCategory` |
-| Semantic → Codegen | `semantic` | `codegen` | `TypedAstNode` (`TypedCompilationUnit`) |
-| Codegen → Pipeline | `codegen` | `integration` | `AssemblyArtifact` |
-| All Stages → Pipeline | All | `integration` | `Diagnostic` via `DiagnosticReporter` |
+| Source → Lexer | Caller / Pipeline | `lexer` | `String source` (+ optional `DiagnosticCollector`) |
+| Lexer → Parser | `lexer` | `parser` | `TokenStream` (`ListTokenStream` yielding `Token(TokenType, String, SourceLocation)`) |
+| Core ↔ Parser | `core` | `parser` | `TypeRegistry`, `AbstractTypeParser<T extends AstNode>` |
+| Parser → Semantic | `parser` | `semantic` | `AstNode` (`nodeKind()`, `typeDescriptor()`, `location()`) |
+| Types ↔ All | `types` | `core`, `ast`, `semantic`, `codegen` | `TypeDescriptor`, `TypeCategory` |
+| Core ↔ Codegen | `core` | `codegen` | `AssemblyBackend`, `AssemblyGenerationContext` |
+| All → Diagnostics | All | Caller / Pipeline | `Diagnostic` via `DiagnosticCollector` & `DiagnosticFormatter` |
 
-### Core Contract Summary (Implemented vs. Planned)
-
-**Implemented in Milestones 03–08:**
-- `TypeRegistry`, `AbstractTypeParser`, `AssemblyGenerationContext`, `AssemblyBackend` (`rkcc.compiler.core`) — centralized type-parser registry, template parsing/codegen delegation contract, and backend SPI
-- `SourceLocation`, `DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, `CompilerException` (`rkcc.compiler.diagnostics`) — centralized immutable diagnostics, session-scoped collection, formatted caret rendering, and exception hierarchy
-- `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `UnexpectedTokenException`, `Lexer`, `LexicalException` (`rkcc.compiler.lexer`) — complete lexical pipeline converting Java source strings into validated `Token` lists and `ListTokenStream` instances with `DiagnosticCollector` integration
-
-**Team Integration Examples Using `TypeRegistry` & `DiagnosticCollector`:**
-- **Krishna (Core, Lexer & Registry):** Wires `Lexer`, `TypeRegistry`, and `DiagnosticCollector` without hardcoding concrete team parsers.
-- **Jatin (Parser & AST):**
-  `registry.resolve(tokens.peek(), diagnostics).ifPresent(p -> astNodes.add(p.parse(tokens)));`
-- **Janesh (Semantic & Integer Types):** Extends `AbstractTypeParser` (overriding `getSupportedTypeNames()` for `byte`/`short`/`int`/`long` if unified) and registers into `TypeRegistry`; uses `DiagnosticCode.SEM_UNDEFINED_VARIABLE` / `TYP_INTEGER_OUT_OF_RANGE`.
-- **Riya (x86 Assembly Codegen):** Implements `AssemblyBackend` so registered `AbstractTypeParser` instances delegate assembly emission via `generateAssembly(...)`.
-- **Ayush (String Type):** Extends `AbstractTypeParser` for `"String"` (`TypeCategory.STRING`, non-primitive reference type) and registers it with `registry.register(stringParser)` so `Token(IDENTIFIER, "String")` resolves cleanly.
-- **Ankit (Boolean Type):** Extends `AbstractTypeParser` for `"boolean"` (`TypeCategory.BOOLEAN`) and registers it with `registry.register(booleanParser)`.
-- `TypeCategory`, `TypeDescriptor` (`rkcc.compiler.types`) — `typeName()`, `category()`, `byteSize()`, `isSigned()`, `isPrimitive()`, `isAssignableTo(TypeDescriptor)`
-- `AstNode` (`rkcc.compiler.ast`) — `nodeKind()`, `typeDescriptor()`
-- `AssemblyGenerationContext`, `AssemblyBackend` (`rkcc.compiler.core`) — `targetName()`, `emitAssembly(AstNode, TypeDescriptor, AssemblyGenerationContext)`
-- `AbstractTypeParser<T extends AstNode>` (`rkcc.compiler.core`) — `getTypeDescriptor()`, `supports(String)`, `supports(TokenStream)`, `requireSupportedType(String)`, `parse(TokenStream)`, `generateAssembly(...)`
-
-**Integration Requirements for Other Team Members:**
-- **Krishna (`lexer`):** Concrete `Lexer` scanner and `TokenStream` implementations must produce `rkcc.compiler.lexer.Token` records using `TokenType` and `SourceLocation` and implement `rkcc.compiler.lexer.TokenStream`.
-- **Jatin (`parser`, `ast`):** Concrete AST nodes must implement `rkcc.compiler.ast.AstNode` (carrying `SourceLocation` where needed). `Parser` must consume `TokenStream`, inspect `Token.type()` / `TokenStream.match(TokenType)`, and delegate type-specific constructs to registered `AbstractTypeParser` instances.
-- **Janesh (`types`, `semantic`):** Concrete integer and future type models must implement `rkcc.compiler.types.TypeDescriptor` using `TypeCategory`.
-- **Riya (`codegen`):** Target assembly emitters must implement `rkcc.compiler.core.AssemblyBackend` so `AbstractTypeParser.generateAssembly(...)` and the future `CodeGenerator` integrate cleanly without duplicating codegen logic.
-
-**Planned for Future Milestones:**
-See [ARCHITECTURE.md](ARCHITECTURE.md#5-implemented-essential-contracts--proposed-future-signatures) for proposed signatures of `DiagnosticReporter`, `Lexer`, `Parser`, `SemanticAnalyzer`, `CodeGenerator`, and `CompilerPipeline`.
+1. **Acyclic Dependencies:** `diagnostics` and `types` sit at the bottom with zero internal compiler dependencies. `codegen` must never depend on `lexer` or `parser`.
+2. **Contract Compatibility:** Any breaking change to finalized shared contracts requires alignment across affected owners before merging.
+3. **No Duplicate Models:** Never duplicate `SourceLocation`, `Token`, `TokenStream`, `AstNode`, `TypeDescriptor`, `Diagnostic`, or `AbstractTypeParser`.
 
 ---
 
-## 3. Integration Rules
+## 4. Branch Ownership & Testing Gate
 
-1. **No Direct Cross-Module Concrete Coupling:**
-   - `parser` interacts with `lexer` through `Token` / `TokenStream` contracts, not lexer internal scanner state.
-   - `codegen` interacts with `semantic` through `TypedAstNode` and `TypeDescriptor`, never AST parsing internals.
-2. **Contract Freeze Protocol:**
-   - Once Krishna publishes shared interfaces in `core`, `diagnostics`, and `types` (Milestone 03), breaking signature changes require agreement from all affected module owners before merging.
-3. **Error Propagation Rule:**
-   - Every stage records errors into `DiagnosticReporter`.
-   - `CompilerPipeline` aborts downstream stages after any stage produces `DiagnosticSeverity.ERROR` (or runs only safe stages) so `CodeGenerator` never runs on semantically invalid ASTs.
-4. **No Duplicate Implementations:**
-   - Do not re-implement `SourceSpan`, `Diagnostic`, or `TypeDescriptor` inside individual feature packages. Reuse the shared contracts.
-
----
-
-## 4. Branch Ownership & Git Workflow
-
-| Owner | Designated Branch Pattern | Status |
-| --- | --- | --- |
-| Krishna | `krishna/compiler-core` | Active (Milestones 01–02) |
-| Jatin | `jatin/parser-ast` *(proposed)* | Pending start |
-| Janesh | `janesh/semantic-types` *(proposed)* | Pending start |
-| Riya | `riya/codegen-x86` *(proposed)* | Pending start |
-| Integration | `main` | Protected — PR/reviewed merge only |
-
-### Git Rules
-- Never commit directly to `main`.
-- Never force push or rewrite shared branch history.
-- Keep commits atomic, descriptive, and verified with `mvn clean test`.
-
----
-
-## 5. Testing Expectations
-
-1. **Framework:** JUnit 5 (`org.junit.jupiter.api.*`) exclusively.
-2. **Per-Module Isolation:** Each developer must write unit tests for their own package under `src/test/java/rkcc/compiler/<package>/` using lightweight test doubles/mocks for upstream contracts until integration.
-3. **Mandatory Coverage Areas:**
-   - **Lexer:** Keywords, identifiers, integer literals, operators, whitespace/comments, invalid characters, accurate `SourceSpan`.
-   - **Parser/AST:** Valid declarations/expressions, operator precedence, `AbstractTypeParser` delegation, syntax error diagnostics.
-   - **Semantic/Types:** Symbol resolution, duplicate/undeclared variable errors, integral type compatibility, `TypedAstNode` accuracy.
-   - **Codegen:** Valid assembly generation for integral operations, stack/register consistency, deterministic output formatting.
-   - **Integration:** Full `Java Source -> Assembly` golden tests and end-to-end error reporting tests.
-4. **Build Gate:** `mvn clean test` must exit `0` with zero failing or skipped tests before opening a merge request or marking a milestone done.
+- Active branch: `krishna/compiler-core` (Milestones 01–09A).
+- Protected `main`: never commit or push directly to `main`, never force-push shared history.
+- Mandatory build gate before PR/commit: `mvn clean verify` (and `git diff --check`) passing with zero failures, zero errors, and zero skipped tests.

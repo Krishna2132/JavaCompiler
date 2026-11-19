@@ -19,9 +19,10 @@ Java Source Code -> Lexer -> Token Stream -> Parser -> AST -> Semantic Analyzer 
 ## Documentation
 
 - [AGENTS.md](AGENTS.md) — Project context, development workflow, Git rules, and module ownership boundaries (read before implementing any milestone).
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Compiler pipeline diagram, package architecture, stage specifications, `AbstractTypeParser` contract design, and type extensibility roadmap.
-- [docs/TEAM_CONTRACT.md](docs/TEAM_CONTRACT.md) — Team responsibilities, shared interface boundaries, integration rules, and testing expectations.
-- [docs/PROGRESS.md](docs/PROGRESS.md) — Completed/pending milestones, verified test results, known limitations, and unresolved technical decisions.
+- [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md) — Setup, build/test commands, module onboarding guide, and Git/PR workflow.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Compiler pipeline diagram, finalized contracts, dependency graph, and type extensibility roadmap.
+- [docs/TEAM_CONTRACT.md](docs/TEAM_CONTRACT.md) — Team responsibilities (Krishna, Jatin, Janesh, Riya, Ayush, Ankit), actual shared APIs, and integration rules.
+- [docs/PROGRESS.md](docs/PROGRESS.md) — Foundation readiness checklist, completed/pending milestones, verified test results, and unresolved decisions.
 
 ## Package Structure & Ownership
 
@@ -62,8 +63,9 @@ mvn clean package
 - **Milestone 05 — Token Stream Implementation:** Completed (`5e95aae`).
 - **Milestone 06 — Java Lexer Implementation:** Completed (`4448d80`).
 - **Milestone 07 — Compiler Diagnostics & Error Handling:** Completed (`d6e6ea9`).
-- **Milestone 08 — Type Registry & Type Parser Management:** Completed.
-  - Implemented `TypeRegistry` (`rkcc.compiler.core`) managing `AbstractTypeParser` registrations, atomic multi-type registration, case-sensitive lookups, token-based resolution (primitive keywords + `String` identifier), duplicate/conflict rejection, and `DiagnosticCollector` integration.
-  - Extended `AbstractTypeParser` with `getSupportedTypeNames()` and added category classification helpers on `TypeCategory`.
-  - Verified with `mvn clean test`: 56 tests passing (`BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `TypeRegistryTest`: 6, `DiagnosticIntegrationTest`: 6, `DiagnosticsTest`: 5, `SourceLocationTest`: 3, `LexerTest`: 9, `ListTokenStreamTest`: 9, `TokenTest`: 5, `TokenTypeTest`: 3).
-- **Not Yet Implemented:** `Parser`, concrete AST nodes, `SemanticAnalyzer`, production Java type handlers (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types — demonstrated only via test-only parsers in `TypeRegistryTest`), `AssemblyBackend` / `CodeGenerator` backend, and `CompilerPipeline`.
+- **Milestone 08 — Type Registry & Type Parser Management:** Completed (`7680364`).
+- **Milestone 09A — Shared Compiler Contracts & Foundation Integration Testing:** Completed.
+  - Finalized shared contracts (`AstNode.location()`, `AssemblyGenerationContext` attribute validation, updated package Javadocs) without creating speculative production stubs.
+  - Added reusable test fixtures ([FoundationTestFixtures.java](src/test/java/rkcc/compiler/integration/FoundationTestFixtures.java)), 6 foundation integration workflow tests ([CompilerFoundationIntegrationTest.java](src/test/java/rkcc/compiler/integration/CompilerFoundationIntegrationTest.java)), and [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md).
+  - Verified with `mvn clean test` and `mvn clean verify`: 62 tests passing (`56` unit tests + `6` foundation integration tests, `0` failures).
+- **Pending (Milestone 09B & Future):** `Parser` & concrete AST nodes (Jatin), `SemanticAnalyzer` & integer type system (Janesh), `String` type module (Ayush), `boolean` type module (Ankit), x86 assembly backend (Riya), `CompilerPipeline`, CLI, and end-to-end compilation tests.

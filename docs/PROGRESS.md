@@ -1,118 +1,88 @@
 # Project Progress — RKCC JavaCompiler
 
-## 1. Completed Milestones
+## 1. Foundation Readiness Checklist (Verified Milestone 09A)
 
-### Milestone 01 — Maven Project Initialization
-- **Status:** Completed and verified
-- **Commit:** `e3d16e0` (`build: initialize Maven JavaCompiler project`)
-- **Deliverables:**
-  - Maven `pom.xml` (`rkcc.compiler:javacompiler:0.1.0-SNAPSHOT`, Java `17` release compatibility, UTF-8 encoding, JUnit Jupiter `5.12.2`, `maven-compiler-plugin` `3.14.1`, `maven-surefire-plugin` `3.5.6`).
-  - Standard Maven directories (`src/main/java/rkcc/compiler/`, `src/test/java/rkcc/compiler/`).
-  - Updated `.gitignore` and initial `README.md`.
-  - Minimal `BuildVerificationTest.java`.
-
-### Milestone 02 — Common Compiler Architecture
-- **Status:** Completed and verified
-- **Commit:** `c0f0a5f` (`feat: establish modular compiler architecture`)
-- **Deliverables:**
-  - Root [AGENTS.md](../AGENTS.md) establishing project context, team ownership, Git rules, and testing standards.
-  - Nine modular Java packages documented via `package-info.java`.
-  - Architecture blueprint in [ARCHITECTURE.md](ARCHITECTURE.md), collaboration rules in [TEAM_CONTRACT.md](TEAM_CONTRACT.md), progress tracking in [PROGRESS.md](PROGRESS.md), and updated [README.md](../README.md).
-
-### Milestone 03 — Abstract Type Parser & Essential Shared Contracts
-- **Status:** Completed and verified
-- **Commits:**
-  - `2d6148f` — `feat: define essential compiler contracts`
-  - `87509dd` — `feat: implement abstract type parser`
-  - `c16fe87` — `test: validate abstract type parser behavior`
-  - `9057086` — `docs: document abstract parser integration`
-- **Deliverables:**
-  - Essential shared contracts: `TypeCategory`, `TypeDescriptor`, `Token`, `TokenStream`, `AstNode`, `AssemblyGenerationContext`, `AssemblyBackend`.
-  - Reusable generic abstract base class `AbstractTypeParser<T extends AstNode>` in `rkcc.compiler.core` with input/output validation and backend delegation.
-  - JUnit 5 tests in [AbstractTypeParserTest.java](../src/test/java/rkcc/compiler/core/AbstractTypeParserTest.java).
-
-### Milestone 04 — Token Model & Source Location
-- **Status:** Completed and verified
-- **Commit:** `bfbd94f` (`feat(lexer): implement token model and source location tracking`)
-- **Deliverables:**
-  - `SourceLocation` record (`rkcc.compiler.diagnostics`) tracking 1-based `line`, 1-based `column`, and 0-based `offset` with constructor validation.
-  - `TokenType` enum (`rkcc.compiler.lexer`) covering Java primitive keywords (`String` treated as `IDENTIFIER`), identifiers, literals, arithmetic, assignment, bitwise, comparison, logical, increment/decrement, delimiters, and `EOF`.
-  - Evolved `Token` (`rkcc.compiler.lexer`) into an immutable `record Token(TokenType type, String lexeme, SourceLocation location)` and updated `TokenStream.match(TokenType)` and `AbstractTypeParserTest`.
-  - JUnit 5 unit tests in `SourceLocationTest`, `TokenTypeTest`, `TokenTest`, and updated `AbstractTypeParserTest`.
-
-### Milestone 05 — Token Stream Implementation
-- **Status:** Completed and verified
-- **Commit:** `5e95aae` (`feat(lexer): implement token stream with lookahead and consumption`)
-- **Deliverables:**
-  - Expanded `TokenStream` (`rkcc.compiler.lexer`) with `previous()`, `check(TokenType)`, `match(TokenType...)`, `consume(TokenType, String)`, and `position()`, preserving `peek()`, `peek(int)`, `advance()`, `isAtEnd()`, and `match(TokenType)`.
-  - Implemented `ListTokenStream` (`rkcc.compiler.lexer`) with defensive list copying, strict non-empty single-terminal-EOF validation, safe repeated EOF reads, and `UnexpectedTokenException` for expected-token errors.
-  - Added JUnit 5 tests and `int a = 10 + 20;` example in [ListTokenStreamTest.java](../src/test/java/rkcc/compiler/lexer/ListTokenStreamTest.java).
-
-### Milestone 06 — Java Lexer Implementation
-- **Status:** Completed and verified
-- **Commit:** `4448d80` (`feat(lexer): implement Java lexical analysis and tokenization`)
-- **Deliverables:**
-  - Implemented `Lexer` and `LexicalException` (`rkcc.compiler.lexer`) with `tokenize(String)` and `tokenizeToStream(String)`.
-  - Verified with comprehensive JUnit 5 tests and 6 integration examples in [LexerTest.java](../src/test/java/rkcc/compiler/lexer/LexerTest.java).
-
-### Milestone 07 — Compiler Diagnostics & Error Handling
-- **Status:** Completed and verified
-- **Commit:** `d6e6ea9` (`feat(diagnostics): implement centralized compiler error reporting`)
-- **Deliverables:**
-  - Centralized diagnostics in `rkcc.compiler.diagnostics` (`DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, `CompilerException`).
-  - Integrated `Lexer`, `LexicalException`, `TokenStream`, and `UnexpectedTokenException` with `DiagnosticCollector` and `CompilerException`.
-
-### Milestone 08 — Type Registry & Type Parser Management
-- **Status:** Completed and verified
-- **Deliverables:**
-  - Implemented `TypeRegistry` (`rkcc.compiler.core`) supporting atomic single/multi-type `AbstractTypeParser` registration, duplicate/conflict detection, case-sensitive lookup, unregistration, immutable snapshots, token-based type resolution (primitive keywords + `IDENTIFIER("String")`), and `DiagnosticCollector` / `CompilerException` integration.
-  - Extended `AbstractTypeParser` with `getSupportedTypeNames()` and added classification helpers on `TypeCategory`.
-  - Verified with comprehensive unit and integration-example tests (test-only parser doubles) in [TypeRegistryTest.java](../src/test/java/rkcc/compiler/core/TypeRegistryTest.java).
+| Component | Status | Verification Evidence |
+| --- | --- | --- |
+| **Maven project configuration** | Complete | [pom.xml](../pom.xml) (`Java 17`, JUnit 5 `5.12.2`, Surefire `3.5.6`) |
+| **Compiler package structure** | Complete | 9 packages under `src/main/java/rkcc/compiler/` with `package-info.java` |
+| **`AbstractTypeParser` contract** | Complete | [AbstractTypeParser.java](../src/main/java/rkcc/compiler/core/AbstractTypeParser.java), 9 unit tests |
+| **Token model (`Token`, `TokenType`)** | Complete | [Token.java](../src/main/java/rkcc/compiler/lexer/Token.java), [TokenType.java](../src/main/java/rkcc/compiler/lexer/TokenType.java), 8 unit tests |
+| **Source location tracking** | Complete | [SourceLocation.java](../src/main/java/rkcc/compiler/diagnostics/SourceLocation.java), 3 unit tests |
+| **`TokenStream` & `ListTokenStream`** | Complete | [TokenStream.java](../src/main/java/rkcc/compiler/lexer/TokenStream.java), [ListTokenStream.java](../src/main/java/rkcc/compiler/lexer/ListTokenStream.java), 9 unit tests |
+| **`Lexer` scanner** | Complete | [Lexer.java](../src/main/java/rkcc/compiler/lexer/Lexer.java), [LexicalException.java](../src/main/java/rkcc/compiler/lexer/LexicalException.java), 9 unit tests |
+| **Compiler diagnostics** | Complete | `Diagnostic*`, `DiagnosticCollector`, `DiagnosticFormatter`, `CompilerException`, 11 unit/integration tests |
+| **`TypeRegistry`** | Complete | [TypeRegistry.java](../src/main/java/rkcc/compiler/core/TypeRegistry.java), 6 unit/example tests |
+| **Shared interfaces (`AstNode`, `TypeDescriptor`, `AssemblyBackend`, `AssemblyGenerationContext`)** | Complete | Finalized with `AstNode.location()` & `AssemblyGenerationContext` attribute validation |
+| **Foundation integration tests & fixtures** | Complete | `FoundationTestFixtures` & `CompilerFoundationIntegrationTest` (6 integration tests) |
+| **Developer documentation** | Complete | `AGENTS.md`, `README.md`, `ARCHITECTURE.md`, `TEAM_CONTRACT.md`, `PROGRESS.md`, `DEVELOPER_GUIDE.md` |
 
 ---
 
-## 2. Pending Milestones
+## 2. Completed Milestones
 
-| Milestone | Scope | Primary Owner(s) | Status |
-| --- | --- | --- | --- |
-| **Milestone 09** | Concrete AST nodes and `Parser` with `TypeRegistry` / `AbstractTypeParser` integration + unit tests | Jatin | Pending |
-| **Milestone 10** | Integer type system (`int` etc.) and `SemanticAnalyzer` producing `TypedAstNode` + unit tests | Janesh | Pending |
-| **Milestone 11** | x86 assembly `AssemblyBackend` / `CodeGenerator` implementation + unit tests | Riya | Pending |
-| **Milestone 12** | End-to-end `CompilerPipeline` wiring and integration test suite | Krishna (+ Team) | Pending |
-| **Future** | Extended Java types (`byte`, `short`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types) | Team | Planned |
-
----
-
-## 3. Verified Test Results
-
-- **Milestone 01 (`e3d16e0`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`)
-- **Milestone 02 (`c0f0a5f`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`)
-- **Milestone 03 (`9057086`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 10, Failures: 0, Errors: 0, Skipped: 0`)
-- **Milestone 04 (`bfbd94f`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 21, Failures: 0, Errors: 0, Skipped: 0`)
-- **Milestone 05 (`5e95aae`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 30, Failures: 0, Errors: 0, Skipped: 0`)
-- **Milestone 06 (`4448d80`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 39, Failures: 0, Errors: 0, Skipped: 0`)
-- **Milestone 07 (`d6e6ea9`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 50, Failures: 0, Errors: 0, Skipped: 0`)
-- **Milestone 08:**
-  - Command: `mvn clean test`
-  - Outcome: `BUILD SUCCESS` (`Tests run: 56, Failures: 0, Errors: 0, Skipped: 0` — `BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `TypeRegistryTest`: 6, `DiagnosticIntegrationTest`: 6, `DiagnosticsTest`: 5, `SourceLocationTest`: 3, `LexerTest`: 9, `ListTokenStreamTest`: 9, `TokenTest`: 5, `TokenTypeTest`: 3)
+- **Milestone 01 — Maven Project Initialization** (`e3d16e0`): Maven structure, `pom.xml`, `BuildVerificationTest` (1 test).
+- **Milestone 02 — Common Compiler Architecture** (`c0f0a5f`): `AGENTS.md`, 9 `package-info.java` boundaries, architecture/team docs.
+- **Milestone 03 — Abstract Type Parser & Essential Shared Contracts** (`2d6148f`, `87509dd`, `c16fe87`, `9057086`): `TypeCategory`, `TypeDescriptor`, `AstNode`, `AssemblyBackend`, `AssemblyGenerationContext`, `AbstractTypeParser` (10 tests).
+- **Milestone 04 — Token Model & Source Location** (`bfbd94f`): `SourceLocation`, `TokenType`, evolved `Token` record (21 tests).
+- **Milestone 05 — Token Stream Implementation** (`5e95aae`): Expanded `TokenStream`, `ListTokenStream`, `UnexpectedTokenException` (30 tests).
+- **Milestone 06 — Java Lexer Implementation** (`4448d80`): `Lexer`, `LexicalException` (39 tests).
+- **Milestone 07 — Compiler Diagnostics & Error Handling** (`d6e6ea9`): Centralized diagnostics & `Lexer`/`TokenStream` integration (50 tests).
+- **Milestone 08 — Type Registry & Type Parser Management** (`7680364`): `TypeRegistry`, `AbstractTypeParser.getSupportedTypeNames()`, `TypeCategory` helpers (56 tests).
+- **Milestone 09A — Shared Compiler Contracts & Foundation Integration Testing:**
+  - Refined `AstNode` with `default Optional<SourceLocation> location()`, tightened `AssemblyGenerationContext` attribute key/value validation, and updated `package-info.java` Javadocs.
+  - Created reusable test fixtures in [FoundationTestFixtures.java](../src/test/java/rkcc/compiler/integration/FoundationTestFixtures.java) and 6 end-to-end foundation integration workflow tests in [CompilerFoundationIntegrationTest.java](../src/test/java/rkcc/compiler/integration/CompilerFoundationIntegrationTest.java).
+  - Created [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) and finalized [TEAM_CONTRACT.md](TEAM_CONTRACT.md) with exact actual contract signatures for all 6 team roles.
 
 ---
 
-## 4. Known Limitations
+## 3. Pending Production Modules & Milestones
 
-- Concrete compiler stages (`Parser`, concrete `AstNode`s, `SemanticAnalyzer`, production `TypeDescriptor` / `AbstractTypeParser` implementations, `AssemblyBackend` / `CodeGenerator`, and `CompilerPipeline`) are not implemented yet.
-- None of the Java data types (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types) have concrete production parser/semantic/codegen implementations yet; `TypeRegistryTest` exercises the registry strictly via test-only parsers.
-- `TypeRegistry.resolve(Token)` intentionally resolves only Java primitive keywords (`byte`..`void`) and `IDENTIFIER("String")` so arbitrary identifiers are not misclassified before general reference-type resolution exists.
+- **Milestone 09B — Actual Team Module Integration:** **Pending** (awaits independent team module deliverables).
+
+| Pending Production Module | Assigned Owner | Status |
+| --- | --- | --- |
+| Parser and AST implementation | Jatin (`rkcc.compiler.parser`, `rkcc.compiler.ast`) | Pending |
+| Semantic analyzer | Janesh (`rkcc.compiler.semantic`) | Pending |
+| Integer type system (`byte`, `short`, `int`, `long`, `char`) | Janesh (`rkcc.compiler.types`) | Pending |
+| String type module | Ayush | Pending |
+| Boolean type module | Ankit | Pending |
+| x86 assembly backend | Riya (`rkcc.compiler.codegen`) | Pending |
+| Compiler pipeline | Krishna (`rkcc.compiler.integration`) | Pending |
+| Command-line interface | Krishna (`rkcc.compiler.integration`) | Pending |
+| End-to-end compilation testing | Team (`rkcc.compiler.integration`) | Pending |
 
 ---
 
-## 5. Unresolved Technical Decisions
+## 4. Verified Test Results (Milestone 09A)
 
-The following decisions must be confirmed with the supervisor and team before implementing later milestones:
+- **Commands:** `mvn clean test` and `mvn clean verify`
+- **Outcome:** `BUILD SUCCESS`
+- **Total Tests Executed:** `62` (`56` unit tests + `6` foundation integration tests)
+- **Passed:** `62`, **Failures:** `0`, **Errors:** `0`, **Skipped:** `0`
+  - `BuildVerificationTest`: `1`
+  - `AbstractTypeParserTest`: `9`
+  - `TypeRegistryTest`: `6`
+  - `DiagnosticIntegrationTest`: `6`
+  - `DiagnosticsTest`: `5`
+  - `SourceLocationTest`: `3`
+  - `LexerTest`: `9`
+  - `ListTokenStreamTest`: `9`
+  - `TokenTest`: `5`
+  - `TokenTypeTest`: `3`
+  - `CompilerFoundationIntegrationTest`: `6`
 
-1. **Target x86 Architecture & Assembly Syntax:** Confirm whether the backend target is **Linux x86-64 with NASM syntax** (currently proposed) or an alternative (e.g., 32-bit x86, Windows x64, GAS/AT&T syntax).
-2. **Exact Initial Integral-Language Subset Grammar:** Finalize which constructs belong in the first executable milestone (e.g., standalone statements vs. minimal `class`/`main` wrapper, supported integer operators, variable declarations, control flow such as `if`/`while`, and `return`/exit codes).
-3. **Program Entry & Runtime Output Mechanism:** Decide how compiled assembly returns results or prints integers (e.g., process exit status via syscall, `printf`/libc linking, or custom runtime helper).
-4. **Integer Bit-Width & Overflow Semantics:** Confirm whether initial `int` lowers to 32-bit (`eax`/`dword`) or 64-bit (`rax`/`qword`) registers/stack slots and how signed overflow or division by zero is handled.
-5. **TokenKind Representation:** Decide whether `Token.kind()` uses a centralized `enum TokenType` or extensible token descriptor interface to support future keywords/types cleanly.
-6. **AST Mutability vs. Immutability:** Confirm whether `TypedAstNode` wraps immutable syntactic `AstNode` instances or creates a separate typed IR tree.
+---
+
+## 5. Known Limitations & Unresolved Technical Decisions
+
+### Known Limitations
+- No concrete production `Parser`, `AstNode` hierarchy, `SemanticAnalyzer`, `TypeDescriptor`/`AbstractTypeParser` implementations, x86 `AssemblyBackend`, `CompilerPipeline`, or CLI exist yet; Milestone 09A integration workflows exercise test-only parsers and stub backends under `src/test`.
+- `Lexer` supports the `TokenType` lexical subset and fails fast on the first lexical error via `LexicalException` (after reporting to `DiagnosticCollector`).
+
+### Unresolved Technical Decisions
+1. **Target x86 Architecture & Assembly Syntax:** Confirm whether **Linux x86-64 with NASM syntax** (proposed baseline) is approved before Riya implements `codegen`.
+2. **Initial Integral-Language Subset Grammar:** Finalize exact grammar scope (standalone statements vs. class/`main` wrapper, control flow, operators) with Jatin and Janesh.
+3. **Program Entry & Output Convention:** Decide syscall exit code vs. `printf`/libc linking vs. runtime helper.
+4. **Integer Bit-Width & Overflow Semantics:** Confirm 32-bit vs. 64-bit lowering for `int` and overflow/division-by-zero handling.
+5. **Typed AST Representation:** Confirm whether `TypedAstNode` wraps `AstNode` or constructs a separate typed tree.

@@ -3,12 +3,9 @@
  *
  * <p><strong>Owner:</strong> Krishna</p>
  *
- * <p><strong>Responsibilities:</strong> Defines the foundational contracts for
- * compiler stages, shared type-parser extensibility (including the planned
- * {@code AbstractTypeParser} base class), and common architectural abstractions
- * that decouple lexical analysis, parsing, semantic validation, and code generation.</p>
- *
- * <p><strong>Status:</strong> Package boundary established in Milestone 02.
- * Concrete abstractions and {@code AbstractTypeParser} are planned for future milestones.</p>
+ * <p><strong>Status (Milestone 09A):</strong> Shared contracts finalized — includes
+ * {@link rkcc.compiler.core.AbstractTypeParser}, {@link rkcc.compiler.core.TypeRegistry},
+ * {@link rkcc.compiler.core.AssemblyBackend}, and
+ * {@link rkcc.compiler.core.AssemblyGenerationContext}.</p>
  */
 package rkcc.compiler.core;
