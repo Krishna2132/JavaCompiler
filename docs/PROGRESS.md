@@ -50,10 +50,16 @@
 
 ### Milestone 06 — Java Lexer Implementation
 - **Status:** Completed and verified
+- **Commit:** `4448d80` (`feat(lexer): implement Java lexical analysis and tokenization`)
 - **Deliverables:**
   - Implemented `Lexer` and `LexicalException` (`rkcc.compiler.lexer`) with `tokenize(String)` and `tokenizeToStream(String)`.
-  - Recognizes primitive type keywords (`byte`..`void`), `true`/`false`/`null`, Java identifiers (`String` treated as `IDENTIFIER`), decimal/binary/octal/hex/floating-point/scientific numeric literals with underscores and suffixes, string/char literals with escape validation, longest-match operators, delimiters, whitespace, CRLF/LF/CR newlines, and `//`, `/* */`, `/** */` comments.
   - Verified with comprehensive JUnit 5 tests and 6 integration examples in [LexerTest.java](../src/test/java/rkcc/compiler/lexer/LexerTest.java).
+
+### Milestone 07 — Compiler Diagnostics & Error Handling
+- **Status:** Completed and verified
+- **Deliverables:**
+  - Centralized diagnostics in `rkcc.compiler.diagnostics`: `DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode` (`LEX001`–`LEX006`, `SYN001`–`SYN004`, `SEM001`–`SEM006`, `GEN001`–`GEN003`, `INT001`), immutable `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, and `CompilerException`.
+  - Integrated `LexicalException` and `UnexpectedTokenException` into `CompilerException`, added `DiagnosticCollector` overloads on `Lexer` and `TokenStream`, and verified formatted output with [DiagnosticsTest.java](../src/test/java/rkcc/compiler/diagnostics/DiagnosticsTest.java) and [DiagnosticIntegrationTest.java](../src/test/java/rkcc/compiler/diagnostics/DiagnosticIntegrationTest.java).
 
 ---
 
@@ -61,7 +67,6 @@
 
 | Milestone | Scope | Primary Owner(s) | Status |
 | --- | --- | --- | --- |
-| **Milestone 07** | Compiler diagnostics (`DiagnosticReporter`, `Diagnostic`, `SourceSpan`) + unit tests | Krishna | Pending |
 | **Milestone 08** | Concrete AST nodes and `Parser` with `AbstractTypeParser` integration + unit tests | Jatin | Pending |
 | **Milestone 09** | Integer type system (`int` etc.) and `SemanticAnalyzer` producing `TypedAstNode` + unit tests | Janesh | Pending |
 | **Milestone 10** | x86 assembly `AssemblyBackend` / `CodeGenerator` implementation + unit tests | Riya | Pending |
@@ -77,18 +82,19 @@
 - **Milestone 03 (`9057086`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 10, Failures: 0, Errors: 0, Skipped: 0`)
 - **Milestone 04 (`bfbd94f`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 21, Failures: 0, Errors: 0, Skipped: 0`)
 - **Milestone 05 (`5e95aae`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 30, Failures: 0, Errors: 0, Skipped: 0`)
-- **Milestone 06:**
+- **Milestone 06 (`4448d80`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 39, Failures: 0, Errors: 0, Skipped: 0`)
+- **Milestone 07:**
   - Command: `mvn clean test`
-  - Outcome: `BUILD SUCCESS` (`Tests run: 39, Failures: 0, Errors: 0, Skipped: 0` — `BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `SourceLocationTest`: 3, `LexerTest`: 9, `ListTokenStreamTest`: 9, `TokenTest`: 5, `TokenTypeTest`: 3)
+  - Outcome: `BUILD SUCCESS` (`Tests run: 50, Failures: 0, Errors: 0, Skipped: 0` — `BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `DiagnosticIntegrationTest`: 6, `DiagnosticsTest`: 5, `SourceLocationTest`: 3, `LexerTest`: 9, `ListTokenStreamTest`: 9, `TokenTest`: 5, `TokenTypeTest`: 3)
 
 ---
 
 ## 4. Known Limitations
 
-- Concrete compiler stages (`DiagnosticReporter`, `Parser`, concrete `AstNode`s, `SemanticAnalyzer`, concrete `TypeDescriptor` implementations, `AssemblyBackend` / `CodeGenerator`, and `CompilerPipeline`) are not implemented yet.
+- Concrete compiler stages (`Parser`, concrete `AstNode`s, `SemanticAnalyzer`, concrete `TypeDescriptor` implementations, `AssemblyBackend` / `CodeGenerator`, and `CompilerPipeline`) are not implemented yet.
 - None of the Java data types (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types) have concrete semantic/codegen handlers yet.
-- `Lexer` currently supports the lexical subset defined in `TokenType` (control-flow/OOP keywords such as `class`, `if`, `else`, `while`, `for`, `return` are tokenized as `IDENTIFIER` until added to `TokenType`); hexadecimal floating-point literals and text blocks (`"""`) are explicitly rejected.
-- `Lexer` throws `LexicalException` on the first lexical error rather than collecting multiple errors via `DiagnosticReporter` (planned for Milestone 07).
+- `Lexer` currently stops on the first lexical error (`LexicalException`) after recording its diagnostic in `DiagnosticCollector`, rather than attempting multi-error lexical recovery.
+- `SYN*`, `SEM*`, `TYP*`, and `GEN*` diagnostic codes beyond `TokenStream` (`SYN001`, `SYN003`) are reserved and tested structurally, awaiting parser, semantic, and codegen module implementations.
 
 ---
 

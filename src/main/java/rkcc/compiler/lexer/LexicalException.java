@@ -1,39 +1,61 @@
 package rkcc.compiler.lexer;
 
+import rkcc.compiler.diagnostics.CompilerException;
+import rkcc.compiler.diagnostics.CompilerPhase;
+import rkcc.compiler.diagnostics.Diagnostic;
+import rkcc.compiler.diagnostics.DiagnosticCode;
+import rkcc.compiler.diagnostics.DiagnosticSeverity;
 import rkcc.compiler.diagnostics.SourceLocation;
 
 /**
- * Minimal unchecked exception thrown by {@link Lexer} when lexical scanning
- * encounters invalid characters, malformed literals, invalid escape sequences,
- * or unterminated strings, character literals, or block comments.
+ * Unchecked exception thrown by {@link Lexer} when lexical scanning encounters
+ * invalid characters, malformed literals, invalid escape sequences, or
+ * unterminated strings, character literals, or block comments.
  *
- * <p>Preserves exact {@link SourceLocation} and offending lexeme metadata for
- * future compiler diagnostics integration.</p>
+ * <p>Extends {@link CompilerException} so every lexical failure carries a
+ * structured {@link Diagnostic} with {@link DiagnosticCode},
+ * {@link CompilerPhase#LEXICAL_ANALYSIS}, and exact {@link SourceLocation}.</p>
  */
-public class LexicalException extends RuntimeException {
+public class LexicalException extends CompilerException {
 
     private final SourceLocation location;
     private final String offendingLexeme;
 
     /**
-     * Constructs a {@code LexicalException} without an offending lexeme snippet.
-     *
-     * @param message descriptive error message
-     * @param location source location where the lexical error began
+     * Constructs a {@code LexicalException} using {@link DiagnosticCode#LEX_UNEXPECTED_CHARACTER}.
      */
     public LexicalException(String message, SourceLocation location) {
-        this(message, location, "");
+        this(DiagnosticCode.LEX_UNEXPECTED_CHARACTER, message, location, "", null);
     }
 
     /**
-     * Constructs a {@code LexicalException} with full source-location context.
-     *
-     * @param message descriptive error message
-     * @param location non-null source location of the lexical error
-     * @param offendingLexeme offending source fragment (non-null; may be empty)
+     * Constructs a {@code LexicalException} with an offending lexeme fragment.
      */
     public LexicalException(String message, SourceLocation location, String offendingLexeme) {
-        super(formatMessage(message, location, offendingLexeme));
+        this(DiagnosticCode.LEX_UNEXPECTED_CHARACTER, message, location, offendingLexeme, null);
+    }
+
+    /**
+     * Constructs a {@code LexicalException} with an explicit {@link DiagnosticCode}.
+     */
+    public LexicalException(
+            DiagnosticCode code,
+            String message,
+            SourceLocation location,
+            String offendingLexeme) {
+        this(code, message, location, offendingLexeme, null);
+    }
+
+    /**
+     * Constructs a {@code LexicalException} with an explicit {@link DiagnosticCode} and cause.
+     */
+    public LexicalException(
+            DiagnosticCode code,
+            String message,
+            SourceLocation location,
+            String offendingLexeme,
+            Throwable cause) {
+        super(buildDiagnostic(code, message, location), cause);
         this.location = location;
         this.offendingLexeme = offendingLexeme == null ? "" : offendingLexeme;
     }
@@ -52,22 +74,24 @@ public class LexicalException extends RuntimeException {
         return offendingLexeme;
     }
 
-    private static String formatMessage(
+    private static Diagnostic buildDiagnostic(
+            DiagnosticCode code,
             String message,
-            SourceLocation location,
-            String offendingLexeme) {
+            SourceLocation location) {
+        if (code == null) {
+            throw new IllegalArgumentException("code must not be null");
+        }
         if (message == null || message.isBlank()) {
             throw new IllegalArgumentException("message must not be null or blank");
         }
         if (location == null) {
             throw new IllegalArgumentException("location must not be null");
         }
-        StringBuilder sb = new StringBuilder(message.trim());
-        if (offendingLexeme != null && !offendingLexeme.isEmpty()) {
-            sb.append(" ('").append(offendingLexeme).append("')");
-        }
-        sb.append(" [at ").append(location.formatCompact())
-                .append(", offset=").append(location.offset()).append(']');
-        return sb.toString();
+        return new Diagnostic(
+                code,
+                DiagnosticSeverity.ERROR,
+                CompilerPhase.LEXICAL_ANALYSIS,
+                message.trim(),
+                location);
     }
 }

@@ -1,5 +1,7 @@
 package rkcc.compiler.lexer;
 
+import rkcc.compiler.diagnostics.DiagnosticCollector;
+
 /**
  * Token-access contract consumed by parsers and {@code AbstractTypeParser}.
  *
@@ -78,6 +80,33 @@ public interface TokenStream {
      * @throws UnexpectedTokenException if the current token does not match {@code expectedType}
      */
     Token consume(TokenType expectedType, String message);
+
+    /**
+     * Consumes the current token if it has {@code expectedType}, or records the
+     * resulting structured diagnostic in {@code diagnostics} before throwing
+     * {@link UnexpectedTokenException}.
+     *
+     * @param expectedType required token type
+     * @param message descriptive diagnostic message on mismatch
+     * @param diagnostics non-null diagnostic collector to record mismatches into
+     * @return the consumed matching token
+     * @throws IllegalArgumentException if {@code diagnostics} is {@code null}
+     * @throws UnexpectedTokenException if the current token does not match {@code expectedType}
+     */
+    default Token consume(
+            TokenType expectedType,
+            String message,
+            DiagnosticCollector diagnostics) {
+        if (diagnostics == null) {
+            throw new IllegalArgumentException("diagnostics must not be null");
+        }
+        try {
+            return consume(expectedType, message);
+        } catch (UnexpectedTokenException ex) {
+            diagnostics.report(ex.getDiagnostic());
+            throw ex;
+        }
+    }
 
     /**
      * Indicates whether the stream cursor has reached {@link TokenType#EOF}.

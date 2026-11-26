@@ -3,6 +3,8 @@ package rkcc.compiler.lexer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import rkcc.compiler.diagnostics.DiagnosticCode;
+import rkcc.compiler.diagnostics.DiagnosticCollector;
 import rkcc.compiler.diagnostics.SourceLocation;
 
 /**
@@ -52,6 +54,28 @@ public final class Lexer {
     }
 
     /**
+     * Tokenizes the supplied Java source text and records any fail-fast lexical
+     * diagnostic into {@code diagnostics} before rethrowing {@link LexicalException}.
+     *
+     * @param source non-null Java source code string
+     * @param diagnostics non-null diagnostic collector
+     * @return unmodifiable list of tokens ending with {@link TokenType#EOF}
+     * @throws IllegalArgumentException if {@code source} or {@code diagnostics} is {@code null}
+     * @throws LexicalException if invalid lexical input is encountered
+     */
+    public List<Token> tokenize(String source, DiagnosticCollector diagnostics) {
+        if (diagnostics == null) {
+            throw new IllegalArgumentException("diagnostics must not be null");
+        }
+        try {
+            return tokenize(source);
+        } catch (LexicalException ex) {
+            diagnostics.report(ex.getDiagnostic());
+            throw ex;
+        }
+    }
+
+    /**
      * Tokenizes the supplied Java source text directly into a validated {@link TokenStream}.
      *
      * @param source non-null Java source code string
@@ -61,6 +85,20 @@ public final class Lexer {
      */
     public TokenStream tokenizeToStream(String source) {
         return new ListTokenStream(tokenize(source));
+    }
+
+    /**
+     * Tokenizes the supplied Java source text into a {@link TokenStream} and records any
+     * fail-fast lexical diagnostic into {@code diagnostics} before rethrowing.
+     *
+     * @param source non-null Java source code string
+     * @param diagnostics non-null diagnostic collector
+     * @return {@link ListTokenStream} wrapping the lexed tokens
+     * @throws IllegalArgumentException if {@code source} or {@code diagnostics} is {@code null}
+     * @throws LexicalException if invalid lexical input is encountered
+     */
+    public TokenStream tokenizeToStream(String source, DiagnosticCollector diagnostics) {
+        return new ListTokenStream(tokenize(source, diagnostics));
     }
 
     private static final class Scanner {
@@ -124,7 +162,11 @@ public final class Lexer {
                 }
                 advanceChar();
             }
-            throw new LexicalException("Unterminated block comment", start, "/*");
+            throw new LexicalException(
+                    DiagnosticCode.LEX_UNTERMINATED_BLOCK_COMMENT,
+                    "Unterminated block comment",
+                    start,
+                    "/*");
         }
 
         private Token scanNextToken() {
@@ -164,7 +206,11 @@ public final class Lexer {
         private Token scanStringLiteral(SourceLocation start) {
             advanceChar(); // opening '"'
             if (peek() == '"' && peek(1) == '"') {
-                throw new LexicalException("Unsupported Java text block literal", start, "\"\"\"");
+                throw new LexicalException(
+                        DiagnosticCode.LEX_UNTERMINATED_STRING,
+                        "Unsupported Java text block literal",
+                        start,
+                        "\"\"\"");
             }
             while (!isAtEnd()) {
                 char ch = peek();
@@ -174,6 +220,7 @@ public final class Lexer {
                 }
                 if (ch == '\n' || ch == '\r') {
                     throw new LexicalException(
+                            DiagnosticCode.LEX_UNTERMINATED_STRING,
                             "Unterminated string literal",
                             start,
                             source.substring(start.offset(), offset));
@@ -185,6 +232,7 @@ public final class Lexer {
                 }
             }
             throw new LexicalException(
+                    DiagnosticCode.LEX_UNTERMINATED_STRING,
                     "Unterminated string literal",
                     start,
                     source.substring(start.offset(), offset));
@@ -193,11 +241,19 @@ public final class Lexer {
         private Token scanCharLiteral(SourceLocation start) {
             advanceChar(); // opening '\''
             if (isAtEnd() || peek() == '\n' || peek() == '\r') {
-                throw new LexicalException("Unterminated character literal", start, "'");
+                throw new LexicalException(
+                        DiagnosticCode.LEX_INVALID_CHARACTER_LITERAL,
+                        "Unterminated character literal",
+                        start,
+                        "'");
             }
             if (peek() == '\'') {
                 advanceChar();
-                throw new LexicalException("Empty character literal", start, "''");
+                throw new LexicalException(
+                        DiagnosticCode.LEX_INVALID_CHARACTER_LITERAL,
+                        "Empty character literal",
+                        start,
+                        "''");
             }
 
             if (peek() == '\\') {
@@ -208,6 +264,7 @@ public final class Lexer {
 
             if (isAtEnd() || peek() == '\n' || peek() == '\r') {
                 throw new LexicalException(
+                        DiagnosticCode.LEX_INVALID_CHARACTER_LITERAL,
                         "Unterminated character literal",
                         start,
                         source.substring(start.offset(), offset));
@@ -220,6 +277,7 @@ public final class Lexer {
                     advanceChar();
                 }
                 throw new LexicalException(
+                        DiagnosticCode.LEX_INVALID_CHARACTER_LITERAL,
                         "Invalid character literal: expected exactly one character",
                         start,
                         source.substring(start.offset(), offset));
@@ -234,6 +292,9 @@ public final class Lexer {
             advanceChar(); // '\\'
             if (isAtEnd() || peek() == '\n' || peek() == '\r') {
                 throw new LexicalException(
+                        inCharLiteral
+                                ? DiagnosticCode.LEX_INVALID_CHARACTER_LITERAL
+                                : DiagnosticCode.LEX_UNTERMINATED_STRING,
                         inCharLiteral
                                 ? "Unterminated character literal after escape"
                                 : "Unterminated string literal after escape",
@@ -252,6 +313,7 @@ public final class Lexer {
                     for (int i = 0; i < 4; i++) {
                         if (!isHexDigit(peek())) {
                             throw new LexicalException(
+                                    DiagnosticCode.LEX_INVALID_ESCAPE_SEQUENCE,
                                     "Invalid Unicode escape sequence",
                                     escapeLoc,
                                     source.substring(escapeLoc.offset(), offset));
@@ -271,6 +333,7 @@ public final class Lexer {
                         }
                     } else {
                         throw new LexicalException(
+                                DiagnosticCode.LEX_INVALID_ESCAPE_SEQUENCE,
                                 "Invalid escape sequence '\\" + esc + "'",
                                 escapeLoc,
                                 "\\" + esc);
@@ -300,6 +363,7 @@ public final class Lexer {
                 advanceChar(); // '.'
                 if (peek() == '_') {
                     throw new LexicalException(
+                            DiagnosticCode.LEX_INVALID_NUMERIC_LITERAL,
                             "Malformed floating-point literal: underscore cannot follow '.'",
                             start,
                             source.substring(startOffset, offset + 1));
@@ -308,12 +372,14 @@ public final class Lexer {
                     scanDigits(10, start, "floating-point fraction");
                 } else if (startsWithLeadingDot) {
                     throw new LexicalException(
+                            DiagnosticCode.LEX_INVALID_NUMERIC_LITERAL,
                             "Malformed floating-point literal",
                             start,
                             source.substring(startOffset, offset));
                 }
                 if (peek() == '.') {
                     throw new LexicalException(
+                            DiagnosticCode.LEX_INVALID_NUMERIC_LITERAL,
                             "Malformed floating-point literal: multiple decimal points",
                             start,
                             source.substring(startOffset, offset + 1));
@@ -328,6 +394,7 @@ public final class Lexer {
                 }
                 if (!isAsciiDigit(peek())) {
                     throw new LexicalException(
+                            DiagnosticCode.LEX_INVALID_NUMERIC_LITERAL,
                             "Malformed floating-point literal: exponent has no digits",
                             start,
                             source.substring(startOffset, offset));
@@ -376,6 +443,7 @@ public final class Lexer {
 
             if (!isDigitForRadix(peek(), radix)) {
                 throw new LexicalException(
+                        DiagnosticCode.LEX_INVALID_NUMERIC_LITERAL,
                         "Malformed " + label + " integer literal: expected digits after prefix",
                         start,
                         source.substring(startOffset, offset));
@@ -385,6 +453,7 @@ public final class Lexer {
 
             if (radix == 16 && (peek() == '.' || peek() == 'p' || peek() == 'P')) {
                 throw new LexicalException(
+                        DiagnosticCode.LEX_INVALID_NUMERIC_LITERAL,
                         "Unsupported hexadecimal floating-point literal",
                         start,
                         source.substring(startOffset, offset + 1));
@@ -411,6 +480,7 @@ public final class Lexer {
                 } else if (ch == '_') {
                     if (offset == segmentStart) {
                         throw new LexicalException(
+                                DiagnosticCode.LEX_INVALID_NUMERIC_LITERAL,
                                 "Malformed " + contextLabel + " literal: leading underscore",
                                 start,
                                 source.substring(start.offset(), offset + 1));
@@ -423,6 +493,7 @@ public final class Lexer {
             }
             if (lastWasUnderscore) {
                 throw new LexicalException(
+                        DiagnosticCode.LEX_INVALID_NUMERIC_LITERAL,
                         "Malformed " + contextLabel + " literal: trailing underscore",
                         start,
                         source.substring(start.offset(), offset));
@@ -434,6 +505,7 @@ public final class Lexer {
                 char ch = digits.charAt(i);
                 if (ch != '_' && !isOctalDigit(ch)) {
                     throw new LexicalException(
+                            DiagnosticCode.LEX_INVALID_NUMERIC_LITERAL,
                             "Malformed octal integer literal: invalid digit '" + ch + "'",
                             start,
                             fullLexeme);
@@ -451,6 +523,7 @@ public final class Lexer {
                         || cp == '.') {
                     advanceCodePoint(cp);
                     throw new LexicalException(
+                            DiagnosticCode.LEX_INVALID_NUMERIC_LITERAL,
                             "Malformed " + literalLabel + " literal: unexpected suffix/character",
                             start,
                             source.substring(startOffset, offset));
@@ -488,7 +561,11 @@ public final class Lexer {
                 default -> {
                     int cp = source.codePointAt(offset);
                     String bad = new String(Character.toChars(cp));
-                    throw new LexicalException("Unexpected character '" + bad + "'", start, bad);
+                    throw new LexicalException(
+                            DiagnosticCode.LEX_UNEXPECTED_CHARACTER,
+                            "Unexpected character '" + bad + "'",
+                            start,
+                            bad);
                 }
             };
             return new Token(matched, source.substring(start.offset(), offset), start);

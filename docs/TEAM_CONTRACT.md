@@ -2,7 +2,7 @@
 
 This document defines the module boundaries, shared data contracts, branching rules, and testing expectations enabling **Krishna**, **Jatin**, **Janesh**, and **Riya** to work in parallel and integrate cleanly.
 
-> **Status Notice (Milestone 06):** Shared contracts (`SourceLocation`, `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `UnexpectedTokenException`, `Lexer`, `LexicalException`, `TypeCategory`, `TypeDescriptor`, `AstNode`, `AssemblyGenerationContext`, `AssemblyBackend`) and `AbstractTypeParser` are implemented and verified in Java. Remaining stage contracts (`DiagnosticReporter`, `Parser`, `SemanticAnalyzer`, `CodeGenerator`, `CompilerPipeline`) will be added in upcoming milestones.
+> **Status Notice (Milestone 07):** Shared contracts (`SourceLocation`, `DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, `CompilerException`, `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `UnexpectedTokenException`, `Lexer`, `LexicalException`, `TypeCategory`, `TypeDescriptor`, `AstNode`, `AssemblyGenerationContext`, `AssemblyBackend`) and `AbstractTypeParser` are implemented and verified in Java. Remaining stage contracts (`Parser`, `SemanticAnalyzer`, `CodeGenerator`, `CompilerPipeline`) will be added in upcoming milestones.
 
 ---
 
@@ -58,9 +58,21 @@ Modules exchange data strictly via the following boundaries:
 
 ### Core Contract Summary (Implemented vs. Planned)
 
-**Implemented in Milestones 03–06:**
-- `SourceLocation` (`rkcc.compiler.diagnostics`) — immutable 1-based `line`/`column` and 0-based `offset` coordinates with validation and `formatCompact()`
-- `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `UnexpectedTokenException`, `Lexer`, `LexicalException` (`rkcc.compiler.lexer`) — complete lexical pipeline converting Java source strings into validated `Token` lists and `ListTokenStream` instances with `SourceLocation` tracking
+**Implemented in Milestones 03–07:**
+- `SourceLocation`, `DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, `CompilerException` (`rkcc.compiler.diagnostics`) — centralized immutable diagnostics, session-scoped collection, formatted caret rendering, and exception hierarchy
+- `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `UnexpectedTokenException`, `Lexer`, `LexicalException` (`rkcc.compiler.lexer`) — complete lexical pipeline converting Java source strings into validated `Token` lists and `ListTokenStream` instances with `DiagnosticCollector` integration
+
+**Team Integration Examples Using `DiagnosticCollector`:**
+- **Jatin (Parser & AST):**
+  `stream.consume(TokenType.SEMICOLON, "Expected ';' after statement", diagnostics);` or `diagnostics.reportError(DiagnosticCode.SYN_INVALID_EXPRESSION, "Invalid expression", token.location());`
+- **Janesh (Semantic & Integer Types):**
+  `diagnostics.reportError(DiagnosticCode.SEM_UNDEFINED_VARIABLE, "Undefined variable '" + name + "'", loc);` / `DiagnosticCode.TYP_INTEGER_OUT_OF_RANGE`
+- **Riya (x86 Assembly Codegen):**
+  `diagnostics.reportError(DiagnosticCode.GEN_INVALID_ASSEMBLY_OPERAND, "Unsupported operand width", null);`
+- **Ayush (String Type):**
+  `diagnostics.reportError(DiagnosticCode.TYP_TYPE_MISMATCH, "Expected String expression", loc);`
+- **Ankit (Boolean Type):**
+  `diagnostics.reportError(DiagnosticCode.TYP_INVALID_CONVERSION, "Cannot convert int to boolean", loc);`
 - `TypeCategory`, `TypeDescriptor` (`rkcc.compiler.types`) — `typeName()`, `category()`, `byteSize()`, `isSigned()`, `isPrimitive()`, `isAssignableTo(TypeDescriptor)`
 - `AstNode` (`rkcc.compiler.ast`) — `nodeKind()`, `typeDescriptor()`
 - `AssemblyGenerationContext`, `AssemblyBackend` (`rkcc.compiler.core`) — `targetName()`, `emitAssembly(AstNode, TypeDescriptor, AssemblyGenerationContext)`

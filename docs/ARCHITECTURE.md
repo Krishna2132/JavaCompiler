@@ -1,6 +1,6 @@
 # Compiler Architecture — RKCC JavaCompiler
 
-> **Status Notice (Milestone 06):** Shared essential contracts, `AbstractTypeParser`, `SourceLocation`, `TokenType`, immutable `Token`, `TokenStream`, `ListTokenStream`, `UnexpectedTokenException`, `Lexer`, and `LexicalException` are implemented and unit-tested. **The full DiagnosticReporter, Parser, concrete AST nodes, Semantic Analyzer, concrete Type implementations, Assembly Generator, and CompilerPipeline are not implemented yet.** Refer to [PROGRESS.md](PROGRESS.md) for verified implementation status.
+> **Status Notice (Milestone 07):** Shared essential contracts, `AbstractTypeParser`, `SourceLocation`, `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `Lexer`, and the centralized diagnostics subsystem (`DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, `CompilerException`) are implemented and unit-tested. **The concrete Parser, concrete AST nodes, Semantic Analyzer, concrete Type implementations, Assembly Generator, and CompilerPipeline are not implemented yet.** Refer to [PROGRESS.md](PROGRESS.md) for verified implementation status.
 
 ## 1. Overall Compiler Architecture
 
@@ -110,28 +110,33 @@ flowchart LR
 
 ## 5. Implemented Essential Contracts & Proposed Future Signatures
 
-> **Milestone 06 Update:** `Lexer` and `LexicalException` are now implemented in `rkcc.compiler.lexer`, producing `Token` sequences and `ListTokenStream`s with accurate `SourceLocation` tracking. Full compiler diagnostics (`Diagnostic`, `DiagnosticReporter`), `Parser`, `SemanticAnalyzer`, `CodeGenerator`, and `CompilerPipeline` remain planned for upcoming milestones.
+> **Milestone 07 Update:** Centralized compiler diagnostics are now implemented in `rkcc.compiler.diagnostics` (`DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, `CompilerException`). `LexicalException` and `UnexpectedTokenException` extend `CompilerException`, and `Lexer` / `TokenStream` provide `DiagnosticCollector`-integrated overloads. Concrete `Parser`, `SemanticAnalyzer`, `CodeGenerator`, and `CompilerPipeline` remain planned for upcoming milestones.
 
-### Implemented Lexical & Shared Contracts (Milestones 03–06)
+### Implemented Diagnostics & Lexical Contracts (Milestones 03–07)
 
-- **`rkcc.compiler.lexer.Lexer`**: Stateless lexical scanner exposing `tokenize(String source)` and `tokenizeToStream(String source)`:
-  - **Tokenization process:** Skips Java whitespace (`' '`, `'\t'`, `'\n'`, `'\r'`, `'\f'`) and comments (`//`, `/* ... */`, `/** ... */`), recognizes string/char literals, numeric literals, identifiers/keywords, and longest-match operators/delimiters, and emits a terminal `TokenType.EOF` token.
-  - **Source location & Unicode conventions:** 1-based `line` (`\r\n`, `\n`, `\r` treated as single newlines), 1-based `column` (each `\t` advances column by `1`), and 0-based UTF-16 `offset`; identifiers use `Character.isJavaIdentifierStart`/`Part` code points.
-  - **Numeric & literal policy:** Supports decimal/binary/octal/hex integers (`L`/`l`), underscores, decimal floats, scientific notation (`f`/`F`/`d`/`D`), and string/char escapes. Rejects malformed literals, unsupported hex floats (`0x1.0p2`), text blocks (`"""`), invalid escapes, unterminated strings/chars/comments, and unexpected characters via `LexicalException`. Leaves range/overflow checks and unary minus folding (`-42` -> `MINUS` + `INTEGER_LITERAL`) outside the lexer.
-- **`rkcc.compiler.lexer.LexicalException`**: Minimal unchecked exception preserving `SourceLocation` and offending lexeme fragment.
-- **`rkcc.compiler.diagnostics.SourceLocation`**: Immutable `record SourceLocation(int line, int column, int offset)` enforcing 1-based `line`/`column` (`>= 1`) and 0-based `offset` (`>= 0`), plus `SourceLocation.START` and `formatCompact()`.
-- **`rkcc.compiler.lexer.TokenType`**: Enum covering primitive keywords (`BYTE`..`VOID`), identifiers (`String` treated as `IDENTIFIER`), literals (`INTEGER_LITERAL`, `FLOATING_POINT_LITERAL`, `CHARACTER_LITERAL`, `STRING_LITERAL`, `TRUE`, `FALSE`, `NULL`), arithmetic, assignment, bitwise, comparison, logical, increment/decrement, delimiters, and `EOF`.
-- **`rkcc.compiler.lexer.Token`**: Immutable `record Token(TokenType type, String lexeme, SourceLocation location)` preserving exact source lexemes and supporting empty lexeme for `EOF`.
-- **`rkcc.compiler.lexer.TokenStream` & `ListTokenStream`**: Token-access contract (`peek()`, `peek(int)`, `advance()`, `previous()`, `check(TokenType)`, `match(TokenType)`, `match(TokenType...)`, `consume(TokenType, String)`, `isAtEnd()`, `position()`) backed by defensive-copying `ListTokenStream` and `UnexpectedTokenException`.
-- **`rkcc.compiler.types.TypeCategory` & `TypeDescriptor`**, **`rkcc.compiler.ast.AstNode`**, **`rkcc.compiler.core.AssemblyGenerationContext` & `AssemblyBackend`**: Shared compiler stage contracts from Milestone 03.
+- **`rkcc.compiler.diagnostics.DiagnosticSeverity`**: `ERROR`, `WARNING`, `INFO` with `isError()`, `isWarning()`, `isInfo()`.
+- **`rkcc.compiler.diagnostics.CompilerPhase`**: `LEXICAL_ANALYSIS`, `SYNTAX_ANALYSIS`, `SEMANTIC_ANALYSIS`, `TYPE_CHECKING`, `CODE_GENERATION`, `INTERNAL`.
+- **`rkcc.compiler.diagnostics.DiagnosticCode`**: Stable code registry (`LEX001`–`LEX006`, `SYN001`–`SYN004`, `SEM001`–`SEM006`, `GEN001`–`GEN003`, `INT001`) with `code()`, `defaultPhase()`, `defaultDescription()`, and `fromCode(String)`.
+- **`rkcc.compiler.diagnostics.Diagnostic`**: Immutable record `(code, severity, phase, message, Optional<SourceLocation>, Optional<String> details)` with factory helpers `error(...)`, `warning(...)`, `info(...)`.
+- **`rkcc.compiler.diagnostics.DiagnosticCollector`**: Session-scoped accumulator preserving insertion order, exposing `report`, `reportError`, `reportWarning`, `reportInfo`, `getDiagnostics`, `getErrors`, `getWarnings`, `getInfoDiagnostics`, `getBySeverity`, `size`, `countBySeverity`, `hasErrors`, `hasWarnings`, `isEmpty`, and `clear`, returning unmodifiable snapshots.
+- **`rkcc.compiler.diagnostics.DiagnosticFormatter`**: Renders `SEVERITY [CODE] (Phase) at line L, column C`, message, optional details, and tab/CRLF/LF/EOF-aware source snippet with caret (`^`) alignment via `format(Diagnostic)`, `format(Diagnostic, String)`, and `formatAll(Collection<Diagnostic>, String)`.
+- **`rkcc.compiler.diagnostics.CompilerException`**: Base runtime exception wrapping a structured `Diagnostic` and optional `Throwable` cause; extended by `LexicalException` and `UnexpectedTokenException`.
+- **`rkcc.compiler.lexer.Lexer`**: Stateless lexical scanner exposing `tokenize(String)` / `tokenize(String, DiagnosticCollector)` and `tokenizeToStream(String)` / `tokenizeToStream(String, DiagnosticCollector)`.
+- **`rkcc.compiler.diagnostics.SourceLocation`**, **`rkcc.compiler.lexer.TokenType` / `Token` / `TokenStream` / `ListTokenStream`**, **`rkcc.compiler.types.TypeCategory` / `TypeDescriptor`**, **`rkcc.compiler.ast.AstNode`**, and **`rkcc.compiler.core.AssemblyGenerationContext` / `AssemblyBackend`**: Shared compiler stage contracts from Milestones 03–06.
 
-### Lexer Usage Example
+### Diagnostics Integration Usage Example
 
 ```java
+DiagnosticCollector diagnostics = new DiagnosticCollector();
+DiagnosticFormatter formatter = new DiagnosticFormatter();
 Lexer lexer = new Lexer();
-TokenStream stream = lexer.tokenizeToStream("int a = 10;\nint c = a + 20;");
-Token first = stream.consume(TokenType.INT, "Expected 'int'");
-// Token[type=INT, lexeme='int', location=1:1]
+String source = "int a = 10 @ 20;";
+
+try {
+    lexer.tokenizeToStream(source, diagnostics);
+} catch (LexicalException ex) {
+    System.out.println(formatter.format(diagnostics.getErrors().get(0), source));
+}
 ```
 
 ### Proposed Future Contracts (Not Yet Implemented)

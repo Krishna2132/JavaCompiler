@@ -60,8 +60,9 @@ mvn clean package
 - **Milestone 03 — Abstract Type Parser & Essential Shared Contracts:** Completed (`2d6148f`, `87509dd`, `c16fe87`, `9057086`).
 - **Milestone 04 — Token Model & Source Location:** Completed (`bfbd94f`).
 - **Milestone 05 — Token Stream Implementation:** Completed (`5e95aae`).
-- **Milestone 06 — Java Lexer Implementation:** Completed.
-  - Implemented `Lexer` and `LexicalException` (`rkcc.compiler.lexer`) converting Java source code into `Token` sequences and `ListTokenStream` instances with accurate `SourceLocation` tracking.
-  - Supports primitive keywords (`byte`..`void`), `true`/`false`/`null`, identifiers (`String` treated as `IDENTIFIER`), decimal/binary/octal/hex/floating-point/scientific numeric literals, string and character literals with escape validation, longest-match operators, delimiters, whitespace, CRLF/LF/CR line endings, and `//`, `/* */`, `/** */` comments.
-  - Verified with `mvn clean test`: 39 tests passing (`BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `SourceLocationTest`: 3, `LexerTest`: 9, `ListTokenStreamTest`: 9, `TokenTest`: 5, `TokenTypeTest`: 3).
-- **Not Yet Implemented:** Full `DiagnosticReporter`, `Parser`, concrete AST nodes, `SemanticAnalyzer`, concrete Java type handlers (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types), `AssemblyBackend` / `CodeGenerator` backend, and `CompilerPipeline`.
+- **Milestone 06 — Java Lexer Implementation:** Completed (`4448d80`).
+- **Milestone 07 — Compiler Diagnostics & Error Handling:** Completed.
+  - Implemented centralized diagnostics in `rkcc.compiler.diagnostics`: `DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, immutable `Diagnostic`, session-scoped `DiagnosticCollector`, caret-based `DiagnosticFormatter`, and `CompilerException`.
+  - Integrated `Lexer` (`tokenize(..., DiagnosticCollector)`), `LexicalException`, `TokenStream.consume(..., DiagnosticCollector)`, and `UnexpectedTokenException` with `CompilerException` and stable diagnostic codes (`LEX001`–`LEX006`, `SYN001`, `SYN003`).
+  - Verified with `mvn clean test`: 50 tests passing (`BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `DiagnosticIntegrationTest`: 6, `DiagnosticsTest`: 5, `SourceLocationTest`: 3, `LexerTest`: 9, `ListTokenStreamTest`: 9, `TokenTest`: 5, `TokenTypeTest`: 3).
+- **Not Yet Implemented:** `Parser`, concrete AST nodes, `SemanticAnalyzer`, concrete Java type handlers (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types), `AssemblyBackend` / `CodeGenerator` backend, and `CompilerPipeline`.
