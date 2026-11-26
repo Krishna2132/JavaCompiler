@@ -42,10 +42,18 @@
 
 ### Milestone 05 — Token Stream Implementation
 - **Status:** Completed and verified
+- **Commit:** `5e95aae` (`feat(lexer): implement token stream with lookahead and consumption`)
 - **Deliverables:**
   - Expanded `TokenStream` (`rkcc.compiler.lexer`) with `previous()`, `check(TokenType)`, `match(TokenType...)`, `consume(TokenType, String)`, and `position()`, preserving `peek()`, `peek(int)`, `advance()`, `isAtEnd()`, and `match(TokenType)`.
   - Implemented `ListTokenStream` (`rkcc.compiler.lexer`) with defensive list copying, strict non-empty single-terminal-EOF validation, safe repeated EOF reads, and `UnexpectedTokenException` for expected-token errors.
-  - Added comprehensive JUnit 5 unit tests and `int a = 10 + 20;` integration example in [ListTokenStreamTest.java](../src/test/java/rkcc/compiler/lexer/ListTokenStreamTest.java), and aligned `TokenTest` and `AbstractTypeParserTest`.
+  - Added JUnit 5 tests and `int a = 10 + 20;` example in [ListTokenStreamTest.java](../src/test/java/rkcc/compiler/lexer/ListTokenStreamTest.java).
+
+### Milestone 06 — Java Lexer Implementation
+- **Status:** Completed and verified
+- **Deliverables:**
+  - Implemented `Lexer` and `LexicalException` (`rkcc.compiler.lexer`) with `tokenize(String)` and `tokenizeToStream(String)`.
+  - Recognizes primitive type keywords (`byte`..`void`), `true`/`false`/`null`, Java identifiers (`String` treated as `IDENTIFIER`), decimal/binary/octal/hex/floating-point/scientific numeric literals with underscores and suffixes, string/char literals with escape validation, longest-match operators, delimiters, whitespace, CRLF/LF/CR newlines, and `//`, `/* */`, `/** */` comments.
+  - Verified with comprehensive JUnit 5 tests and 6 integration examples in [LexerTest.java](../src/test/java/rkcc/compiler/lexer/LexerTest.java).
 
 ---
 
@@ -53,11 +61,11 @@
 
 | Milestone | Scope | Primary Owner(s) | Status |
 | --- | --- | --- | --- |
-| **Milestone 06** | Concrete `Lexer` scanner and/or `DiagnosticReporter` + unit tests | Krishna | Pending |
-| **Milestone 07** | Concrete AST nodes and `Parser` with `AbstractTypeParser` integration + unit tests | Jatin | Pending |
-| **Milestone 08** | Integer type system (`int` etc.) and `SemanticAnalyzer` producing `TypedAstNode` + unit tests | Janesh | Pending |
-| **Milestone 09** | x86 assembly `AssemblyBackend` / `CodeGenerator` implementation + unit tests | Riya | Pending |
-| **Milestone 10** | End-to-end `CompilerPipeline` wiring and integration test suite | Krishna (+ Team) | Pending |
+| **Milestone 07** | Compiler diagnostics (`DiagnosticReporter`, `Diagnostic`, `SourceSpan`) + unit tests | Krishna | Pending |
+| **Milestone 08** | Concrete AST nodes and `Parser` with `AbstractTypeParser` integration + unit tests | Jatin | Pending |
+| **Milestone 09** | Integer type system (`int` etc.) and `SemanticAnalyzer` producing `TypedAstNode` + unit tests | Janesh | Pending |
+| **Milestone 10** | x86 assembly `AssemblyBackend` / `CodeGenerator` implementation + unit tests | Riya | Pending |
+| **Milestone 11** | End-to-end `CompilerPipeline` wiring and integration test suite | Krishna (+ Team) | Pending |
 | **Future** | Extended Java types (`byte`, `short`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types) | Team | Planned |
 
 ---
@@ -68,18 +76,19 @@
 - **Milestone 02 (`c0f0a5f`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`)
 - **Milestone 03 (`9057086`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 10, Failures: 0, Errors: 0, Skipped: 0`)
 - **Milestone 04 (`bfbd94f`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 21, Failures: 0, Errors: 0, Skipped: 0`)
-- **Milestone 05:**
+- **Milestone 05 (`5e95aae`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 30, Failures: 0, Errors: 0, Skipped: 0`)
+- **Milestone 06:**
   - Command: `mvn clean test`
-  - Outcome: `BUILD SUCCESS` (`Tests run: 30, Failures: 0, Errors: 0, Skipped: 0` — `BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `SourceLocationTest`: 3, `ListTokenStreamTest`: 9, `TokenTest`: 5, `TokenTypeTest`: 3)
+  - Outcome: `BUILD SUCCESS` (`Tests run: 39, Failures: 0, Errors: 0, Skipped: 0` — `BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `SourceLocationTest`: 3, `LexerTest`: 9, `ListTokenStreamTest`: 9, `TokenTest`: 5, `TokenTypeTest`: 3)
 
 ---
 
 ## 4. Known Limitations
 
-- Concrete compiler stages (`Lexer` scanner, `Parser`, concrete `AstNode`s, `SemanticAnalyzer`, concrete `TypeDescriptor` implementations, `AssemblyBackend` / `CodeGenerator`, full `DiagnosticReporter`, and `CompilerPipeline`) are not implemented yet.
-- None of the Java data types (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types) have concrete production handlers yet.
-- Numeric literal range validation and unary sign folding are intentionally excluded from `Token` and `TokenStream`, and deferred to lexer/semantic stages.
-- `TokenStream.consume(...)` currently throws `UnexpectedTokenException` instead of recording into a multi-error `DiagnosticReporter` (which is deferred to a later milestone).
+- Concrete compiler stages (`DiagnosticReporter`, `Parser`, concrete `AstNode`s, `SemanticAnalyzer`, concrete `TypeDescriptor` implementations, `AssemblyBackend` / `CodeGenerator`, and `CompilerPipeline`) are not implemented yet.
+- None of the Java data types (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types) have concrete semantic/codegen handlers yet.
+- `Lexer` currently supports the lexical subset defined in `TokenType` (control-flow/OOP keywords such as `class`, `if`, `else`, `while`, `for`, `return` are tokenized as `IDENTIFIER` until added to `TokenType`); hexadecimal floating-point literals and text blocks (`"""`) are explicitly rejected.
+- `Lexer` throws `LexicalException` on the first lexical error rather than collecting multiple errors via `DiagnosticReporter` (planned for Milestone 07).
 
 ---
 

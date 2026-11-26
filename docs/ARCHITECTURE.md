@@ -1,6 +1,6 @@
 # Compiler Architecture — RKCC JavaCompiler
 
-> **Status Notice (Milestone 05):** Shared essential contracts, `AbstractTypeParser`, `SourceLocation`, `TokenType`, immutable `Token`, expanded `TokenStream`, `ListTokenStream`, and `UnexpectedTokenException` are implemented and unit-tested. **The concrete Lexer scanner, Parser, concrete AST nodes, Semantic Analyzer, concrete Type implementations, Assembly Generator, full DiagnosticReporter, and CompilerPipeline are not implemented yet.** Refer to [PROGRESS.md](PROGRESS.md) for verified implementation status.
+> **Status Notice (Milestone 06):** Shared essential contracts, `AbstractTypeParser`, `SourceLocation`, `TokenType`, immutable `Token`, `TokenStream`, `ListTokenStream`, `UnexpectedTokenException`, `Lexer`, and `LexicalException` are implemented and unit-tested. **The full DiagnosticReporter, Parser, concrete AST nodes, Semantic Analyzer, concrete Type implementations, Assembly Generator, and CompilerPipeline are not implemented yet.** Refer to [PROGRESS.md](PROGRESS.md) for verified implementation status.
 
 ## 1. Overall Compiler Architecture
 
@@ -110,44 +110,28 @@ flowchart LR
 
 ## 5. Implemented Essential Contracts & Proposed Future Signatures
 
-> **Milestone 05 Update:** `TokenStream` has been expanded with `previous()`, `check(TokenType)`, `match(TokenType...)`, `consume(TokenType, String)`, and `position()`, backed by the production `ListTokenStream` and minimal `UnexpectedTokenException`. Full compiler diagnostics (`Diagnostic`, `DiagnosticReporter`), concrete `Lexer` scanner, `Parser`, `SemanticAnalyzer`, `CodeGenerator`, and `CompilerPipeline` remain planned for upcoming milestones.
+> **Milestone 06 Update:** `Lexer` and `LexicalException` are now implemented in `rkcc.compiler.lexer`, producing `Token` sequences and `ListTokenStream`s with accurate `SourceLocation` tracking. Full compiler diagnostics (`Diagnostic`, `DiagnosticReporter`), `Parser`, `SemanticAnalyzer`, `CodeGenerator`, and `CompilerPipeline` remain planned for upcoming milestones.
 
-### Implemented Shared Contracts (Milestones 03–05)
+### Implemented Lexical & Shared Contracts (Milestones 03–06)
 
+- **`rkcc.compiler.lexer.Lexer`**: Stateless lexical scanner exposing `tokenize(String source)` and `tokenizeToStream(String source)`:
+  - **Tokenization process:** Skips Java whitespace (`' '`, `'\t'`, `'\n'`, `'\r'`, `'\f'`) and comments (`//`, `/* ... */`, `/** ... */`), recognizes string/char literals, numeric literals, identifiers/keywords, and longest-match operators/delimiters, and emits a terminal `TokenType.EOF` token.
+  - **Source location & Unicode conventions:** 1-based `line` (`\r\n`, `\n`, `\r` treated as single newlines), 1-based `column` (each `\t` advances column by `1`), and 0-based UTF-16 `offset`; identifiers use `Character.isJavaIdentifierStart`/`Part` code points.
+  - **Numeric & literal policy:** Supports decimal/binary/octal/hex integers (`L`/`l`), underscores, decimal floats, scientific notation (`f`/`F`/`d`/`D`), and string/char escapes. Rejects malformed literals, unsupported hex floats (`0x1.0p2`), text blocks (`"""`), invalid escapes, unterminated strings/chars/comments, and unexpected characters via `LexicalException`. Leaves range/overflow checks and unary minus folding (`-42` -> `MINUS` + `INTEGER_LITERAL`) outside the lexer.
+- **`rkcc.compiler.lexer.LexicalException`**: Minimal unchecked exception preserving `SourceLocation` and offending lexeme fragment.
 - **`rkcc.compiler.diagnostics.SourceLocation`**: Immutable `record SourceLocation(int line, int column, int offset)` enforcing 1-based `line`/`column` (`>= 1`) and 0-based `offset` (`>= 0`), plus `SourceLocation.START` and `formatCompact()`.
 - **`rkcc.compiler.lexer.TokenType`**: Enum covering primitive keywords (`BYTE`..`VOID`), identifiers (`String` treated as `IDENTIFIER`), literals (`INTEGER_LITERAL`, `FLOATING_POINT_LITERAL`, `CHARACTER_LITERAL`, `STRING_LITERAL`, `TRUE`, `FALSE`, `NULL`), arithmetic, assignment, bitwise, comparison, logical, increment/decrement, delimiters, and `EOF`.
-- **`rkcc.compiler.lexer.Token`**: Immutable `record Token(TokenType type, String lexeme, SourceLocation location)` preserving exact source lexemes, supporting empty lexeme for `EOF`, treating `MINUS` separately from numeric literals, and keeping numeric range validation out of the token layer.
-- **`rkcc.compiler.lexer.TokenStream`**: Token-access contract declaring `peek()`, `peek(int offset)`, `advance()`, `previous()`, `check(TokenType type)`, `match(TokenType expectedType)`, `match(TokenType... types)`, `consume(TokenType expectedType, String message)`, `isAtEnd()`, and `position()`.
-- **`rkcc.compiler.lexer.ListTokenStream`**: Validated, defensively copied list-backed `TokenStream` enforcing non-empty, single-terminal-EOF token sequences, safe repeated EOF reads, non-negative lookahead offsets, and `IllegalStateException` if `previous()` is called before advancing.
-- **`rkcc.compiler.lexer.UnexpectedTokenException`**: Minimal unchecked exception thrown by `consume(TokenType, String)` carrying expected `TokenType`, actual `Token`, and `SourceLocation`.
-- **`rkcc.compiler.types.TypeCategory`**: Enum classifying `INTEGRAL`, `FLOATING_POINT`, `BOOLEAN`, `CHAR`, `STRING`, `ARRAY`, `REFERENCE`, `VOID`, `UNKNOWN`.
-- **`rkcc.compiler.types.TypeDescriptor`**: Interface declaring `typeName()`, `category()`, `byteSize()`, `isSigned()`, `isPrimitive()`, and `isAssignableTo(TypeDescriptor)`.
-- **`rkcc.compiler.ast.AstNode`**: Minimal AST base contract declaring `nodeKind()` and `Optional<TypeDescriptor> typeDescriptor()`.
-- **`rkcc.compiler.core.AssemblyGenerationContext`**: Immutable context carrying `getTargetArchitecture()`, `getSectionHint()`, and `getAttributes()`.
-- **`rkcc.compiler.core.AssemblyBackend`**: Backend delegation port declaring `targetName()` and `emitAssembly(AstNode, TypeDescriptor, AssemblyGenerationContext)`.
+- **`rkcc.compiler.lexer.Token`**: Immutable `record Token(TokenType type, String lexeme, SourceLocation location)` preserving exact source lexemes and supporting empty lexeme for `EOF`.
+- **`rkcc.compiler.lexer.TokenStream` & `ListTokenStream`**: Token-access contract (`peek()`, `peek(int)`, `advance()`, `previous()`, `check(TokenType)`, `match(TokenType)`, `match(TokenType...)`, `consume(TokenType, String)`, `isAtEnd()`, `position()`) backed by defensive-copying `ListTokenStream` and `UnexpectedTokenException`.
+- **`rkcc.compiler.types.TypeCategory` & `TypeDescriptor`**, **`rkcc.compiler.ast.AstNode`**, **`rkcc.compiler.core.AssemblyGenerationContext` & `AssemblyBackend`**: Shared compiler stage contracts from Milestone 03.
 
-### TokenStream Usage Example (`int a = 10 + 20;`)
+### Lexer Usage Example
 
 ```java
-TokenStream stream = new ListTokenStream(List.of(
-        new Token(TokenType.INT, "int", new SourceLocation(1, 1, 0)),
-        new Token(TokenType.IDENTIFIER, "a", new SourceLocation(1, 5, 4)),
-        new Token(TokenType.ASSIGN, "=", new SourceLocation(1, 7, 6)),
-        new Token(TokenType.INTEGER_LITERAL, "10", new SourceLocation(1, 9, 8)),
-        new Token(TokenType.PLUS, "+", new SourceLocation(1, 12, 11)),
-        new Token(TokenType.INTEGER_LITERAL, "20", new SourceLocation(1, 14, 13)),
-        new Token(TokenType.SEMICOLON, ";", new SourceLocation(1, 16, 15)),
-        Token.eof(new SourceLocation(1, 17, 16))
-));
-
-if (stream.match(TokenType.INT)) {
-    Token name = stream.consume(TokenType.IDENTIFIER, "Expected variable identifier");
-    stream.consume(TokenType.ASSIGN, "Expected '='");
-    Token lhs = stream.consume(TokenType.INTEGER_LITERAL, "Expected left operand");
-    Token op = stream.advance();
-    Token rhs = stream.consume(TokenType.INTEGER_LITERAL, "Expected right operand");
-    stream.consume(TokenType.SEMICOLON, "Expected ';'");
-}
+Lexer lexer = new Lexer();
+TokenStream stream = lexer.tokenizeToStream("int a = 10;\nint c = a + 20;");
+Token first = stream.consume(TokenType.INT, "Expected 'int'");
+// Token[type=INT, lexeme='int', location=1:1]
 ```
 
 ### Proposed Future Contracts (Not Yet Implemented)

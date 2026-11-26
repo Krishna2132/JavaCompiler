@@ -59,8 +59,9 @@ mvn clean package
 - **Milestone 02 — Common Compiler Architecture:** Completed (`c0f0a5f`).
 - **Milestone 03 — Abstract Type Parser & Essential Shared Contracts:** Completed (`2d6148f`, `87509dd`, `c16fe87`, `9057086`).
 - **Milestone 04 — Token Model & Source Location:** Completed (`bfbd94f`).
-- **Milestone 05 — Token Stream Implementation:** Completed.
-  - Expanded `TokenStream` (`rkcc.compiler.lexer`) with `previous()`, `check(TokenType)`, `match(TokenType...)`, `consume(TokenType, String)`, and `position()`, while preserving `peek()`, `peek(int)`, `advance()`, `isAtEnd()`, and `match(TokenType)`.
-  - Implemented `ListTokenStream` with defensive copying, strict single-terminal-EOF validation, safe repeated EOF reads, and `UnexpectedTokenException` for expected-token mismatches.
-  - Verified with `mvn clean test`: 30 tests passing (`BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `SourceLocationTest`: 3, `ListTokenStreamTest`: 9, `TokenTest`: 5, `TokenTypeTest`: 3).
-- **Not Yet Implemented:** Concrete `Lexer` scanner, `Parser`, concrete AST nodes, `SemanticAnalyzer`, concrete Java type handlers (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types), `AssemblyBackend` / `CodeGenerator` backend, full `DiagnosticReporter`, and `CompilerPipeline`.
+- **Milestone 05 — Token Stream Implementation:** Completed (`5e95aae`).
+- **Milestone 06 — Java Lexer Implementation:** Completed.
+  - Implemented `Lexer` and `LexicalException` (`rkcc.compiler.lexer`) converting Java source code into `Token` sequences and `ListTokenStream` instances with accurate `SourceLocation` tracking.
+  - Supports primitive keywords (`byte`..`void`), `true`/`false`/`null`, identifiers (`String` treated as `IDENTIFIER`), decimal/binary/octal/hex/floating-point/scientific numeric literals, string and character literals with escape validation, longest-match operators, delimiters, whitespace, CRLF/LF/CR line endings, and `//`, `/* */`, `/** */` comments.
+  - Verified with `mvn clean test`: 39 tests passing (`BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `SourceLocationTest`: 3, `LexerTest`: 9, `ListTokenStreamTest`: 9, `TokenTest`: 5, `TokenTypeTest`: 3).
+- **Not Yet Implemented:** Full `DiagnosticReporter`, `Parser`, concrete AST nodes, `SemanticAnalyzer`, concrete Java type handlers (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types), `AssemblyBackend` / `CodeGenerator` backend, and `CompilerPipeline`.
