@@ -2,7 +2,7 @@
 
 This document defines the module boundaries, shared data contracts, branching rules, and testing expectations enabling **Krishna**, **Jatin**, **Janesh**, and **Riya** to work in parallel and integrate cleanly.
 
-> **Status Notice (Milestone 03):** Core shared contracts (`TypeCategory`, `TypeDescriptor`, `Token`, `TokenStream`, `AstNode`, `AssemblyGenerationContext`, `AssemblyBackend`) and `AbstractTypeParser` are now implemented and verified in Java. Remaining stage contracts (`DiagnosticReporter`, `Lexer`, `Parser`, `SemanticAnalyzer`, `CodeGenerator`, `CompilerPipeline`) will be added in upcoming milestones.
+> **Status Notice (Milestone 04):** Shared contracts (`SourceLocation`, `TokenType`, `Token`, `TokenStream`, `TypeCategory`, `TypeDescriptor`, `AstNode`, `AssemblyGenerationContext`, `AssemblyBackend`) and `AbstractTypeParser` are implemented and verified in Java. Remaining stage contracts (`DiagnosticReporter`, `Lexer`, `Parser`, `SemanticAnalyzer`, `CodeGenerator`, `CompilerPipeline`) will be added in upcoming milestones.
 
 ---
 
@@ -58,16 +58,17 @@ Modules exchange data strictly via the following boundaries:
 
 ### Core Contract Summary (Implemented vs. Planned)
 
-**Implemented in Milestone 03:**
+**Implemented in Milestones 03–04:**
+- `SourceLocation` (`rkcc.compiler.diagnostics`) — immutable 1-based `line`/`column` and 0-based `offset` coordinates with validation and `formatCompact()`
+- `TokenType`, `Token`, `TokenStream` (`rkcc.compiler.lexer`) — strongly typed `TokenType` enum, immutable `record Token(TokenType type, String lexeme, SourceLocation location)`, and `TokenStream` (`peek()`, `peek(int)`, `advance()`, `isAtEnd()`, `match(TokenType)`)
 - `TypeCategory`, `TypeDescriptor` (`rkcc.compiler.types`) — `typeName()`, `category()`, `byteSize()`, `isSigned()`, `isPrimitive()`, `isAssignableTo(TypeDescriptor)`
-- `Token`, `TokenStream` (`rkcc.compiler.lexer`) — `kind()`, `lexeme()`, `peek()`, `peek(int)`, `advance()`, `isAtEnd()`, `match(String)`
 - `AstNode` (`rkcc.compiler.ast`) — `nodeKind()`, `typeDescriptor()`
 - `AssemblyGenerationContext`, `AssemblyBackend` (`rkcc.compiler.core`) — `targetName()`, `emitAssembly(AstNode, TypeDescriptor, AssemblyGenerationContext)`
 - `AbstractTypeParser<T extends AstNode>` (`rkcc.compiler.core`) — `getTypeDescriptor()`, `supports(String)`, `supports(TokenStream)`, `requireSupportedType(String)`, `parse(TokenStream)`, `generateAssembly(...)`
 
 **Integration Requirements for Other Team Members:**
-- **Krishna (`lexer`):** Concrete `Token` and `TokenStream` implementations must implement `rkcc.compiler.lexer.Token` and `rkcc.compiler.lexer.TokenStream`.
-- **Jatin (`parser`, `ast`):** Concrete AST nodes must implement `rkcc.compiler.ast.AstNode`. `Parser` must delegate type-specific constructs to registered `AbstractTypeParser` instances via `supports(TokenStream)` / `supports(String)` and `parse(TokenStream)`.
+- **Krishna (`lexer`):** Concrete `Lexer` scanner and `TokenStream` implementations must produce `rkcc.compiler.lexer.Token` records using `TokenType` and `SourceLocation` and implement `rkcc.compiler.lexer.TokenStream`.
+- **Jatin (`parser`, `ast`):** Concrete AST nodes must implement `rkcc.compiler.ast.AstNode` (carrying `SourceLocation` where needed). `Parser` must consume `TokenStream`, inspect `Token.type()` / `TokenStream.match(TokenType)`, and delegate type-specific constructs to registered `AbstractTypeParser` instances.
 - **Janesh (`types`, `semantic`):** Concrete integer and future type models must implement `rkcc.compiler.types.TypeDescriptor` using `TypeCategory`.
 - **Riya (`codegen`):** Target assembly emitters must implement `rkcc.compiler.core.AssemblyBackend` so `AbstractTypeParser.generateAssembly(...)` and the future `CodeGenerator` integrate cleanly without duplicating codegen logic.
 

@@ -3,7 +3,8 @@ package rkcc.compiler.lexer;
 /**
  * Minimal token-access contract consumed by parsers and {@code AbstractTypeParser}.
  *
- * <p>Decouples syntactic parsing from concrete lexer scanning internals.</p>
+ * <p>Decouples syntactic parsing from concrete lexer scanning internals while
+ * exchanging strongly typed {@link Token} instances.</p>
  */
 public interface TokenStream {
 
@@ -37,10 +38,10 @@ public interface TokenStream {
     boolean isAtEnd();
 
     /**
-     * Checks whether the current token matches {@code expectedKind} and advances if so.
+     * Checks whether the current token matches {@code expectedType} and advances if so.
      *
-     * @param expectedKind expected token kind identifier
+     * @param expectedType expected token type
      * @return {@code true} if matched and consumed, {@code false} otherwise
      */
-    boolean match(String expectedKind);
+    boolean match(TokenType expectedType);
 }

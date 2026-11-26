@@ -1,6 +1,6 @@
 # Compiler Architecture — RKCC JavaCompiler
 
-> **Status Notice (Milestone 03):** Shared essential contracts (`TypeCategory`, `TypeDescriptor`, `Token`, `TokenStream`, `AstNode`, `AssemblyGenerationContext`, `AssemblyBackend`) and `AbstractTypeParser` are now implemented and unit-tested. **The full Lexer, Parser, concrete AST nodes, Semantic Analyzer, concrete Type implementations, Assembly Generator, DiagnosticReporter, and CompilerPipeline are not implemented yet.** Refer to [PROGRESS.md](PROGRESS.md) for verified implementation status.
+> **Status Notice (Milestone 04):** Shared essential contracts, `AbstractTypeParser`, `SourceLocation`, `TokenType`, immutable `Token`, and strongly typed `TokenStream` are implemented and unit-tested. **The full Lexer scanner, Parser, concrete AST nodes, Semantic Analyzer, concrete Type implementations, Assembly Generator, DiagnosticReporter, and CompilerPipeline are not implemented yet.** Refer to [PROGRESS.md](PROGRESS.md) for verified implementation status.
 
 ## 1. Overall Compiler Architecture
 
@@ -110,17 +110,29 @@ flowchart LR
 
 ## 5. Implemented Essential Contracts & Proposed Future Signatures
 
-> **Milestone 03 Update:** The minimal contracts required by `AbstractTypeParser` are now implemented in Java (`TypeCategory`, `TypeDescriptor`, `Token`, `TokenStream`, `AstNode`, `AssemblyGenerationContext`, `AssemblyBackend`). Full compiler diagnostics (`Diagnostic`, `SourceSpan`, `DiagnosticReporter`), `Lexer`, `Parser`, `SemanticAnalyzer`, `CodeGenerator`, and `CompilerPipeline` remain design proposals for upcoming milestones.
+> **Milestone 04 Update:** Milestone 03 contracts remain in place, and the minimal `Token` interface has been evolved into a single immutable, strongly typed `Token` record backed by `TokenType` and `SourceLocation` (`TokenStream.match(TokenType)` updated accordingly). Full compiler diagnostics (`Diagnostic`, `DiagnosticReporter`), `Lexer`, `Parser`, `SemanticAnalyzer`, `CodeGenerator`, and `CompilerPipeline` remain planned for upcoming milestones.
 
-### Implemented Shared Contracts (Milestone 03)
+### Implemented Shared Contracts (Milestones 03–04)
 
+- **`rkcc.compiler.diagnostics.SourceLocation`**: Immutable `record SourceLocation(int line, int column, int offset)` enforcing 1-based `line`/`column` (`>= 1`) and 0-based `offset` (`>= 0`), plus `SourceLocation.START` and `formatCompact()`.
+- **`rkcc.compiler.lexer.TokenType`**: Enum covering primitive keywords (`BYTE`..`VOID`), identifiers (`String` treated as `IDENTIFIER`), literals (`INTEGER_LITERAL`, `FLOATING_POINT_LITERAL`, `CHARACTER_LITERAL`, `STRING_LITERAL`, `TRUE`, `FALSE`, `NULL`), arithmetic, assignment, bitwise, comparison, logical, increment/decrement, delimiters, and `EOF`.
+- **`rkcc.compiler.lexer.Token`**: Immutable `record Token(TokenType type, String lexeme, SourceLocation location)` preserving exact source lexemes, supporting empty lexeme for `EOF`, treating `MINUS` separately from numeric literals, and keeping numeric range validation out of the token layer.
+- **`rkcc.compiler.lexer.TokenStream`**: Token-access contract declaring `peek()`, `peek(int offset)`, `advance()`, `isAtEnd()`, and `match(TokenType expectedType)`.
 - **`rkcc.compiler.types.TypeCategory`**: Enum classifying `INTEGRAL`, `FLOATING_POINT`, `BOOLEAN`, `CHAR`, `STRING`, `ARRAY`, `REFERENCE`, `VOID`, `UNKNOWN`.
 - **`rkcc.compiler.types.TypeDescriptor`**: Interface declaring `typeName()`, `category()`, `byteSize()`, `isSigned()`, `isPrimitive()`, and `isAssignableTo(TypeDescriptor)`.
-- **`rkcc.compiler.lexer.Token`**: Minimal token contract declaring `kind()` and `lexeme()`.
-- **`rkcc.compiler.lexer.TokenStream`**: Minimal lookahead/consumption contract declaring `peek()`, `peek(int offset)`, `advance()`, `isAtEnd()`, and `match(String expectedKind)`.
 - **`rkcc.compiler.ast.AstNode`**: Minimal AST base contract declaring `nodeKind()` and `Optional<TypeDescriptor> typeDescriptor()`.
 - **`rkcc.compiler.core.AssemblyGenerationContext`**: Immutable context carrying `getTargetArchitecture()`, `getSectionHint()`, and `getAttributes()`.
 - **`rkcc.compiler.core.AssemblyBackend`**: Backend delegation port declaring `targetName()` and `emitAssembly(AstNode, TypeDescriptor, AssemblyGenerationContext)`.
+
+### Token & SourceLocation Usage Example
+
+```java
+SourceLocation loc = new SourceLocation(1, 5, 4);
+Token varName = new Token(TokenType.IDENTIFIER, "count", loc);
+Token minus = new Token(TokenType.MINUS, "-", new SourceLocation(1, 13, 12));
+Token literal = new Token(TokenType.INTEGER_LITERAL, "42", new SourceLocation(1, 14, 13));
+Token eof = Token.eof(new SourceLocation(1, 17, 16));
+```
 
 ### Proposed Future Contracts (Not Yet Implemented)
 
@@ -289,9 +301,9 @@ Allowed compile-time dependency direction (strictly acyclic):
 
 ```text
 types            -> (no internal compiler dependencies)
-lexer (contract) -> (no internal compiler dependencies)
+diagnostics      -> (no internal compiler dependencies; owns SourceLocation)
+lexer (contract) -> diagnostics (Token uses SourceLocation; TokenType, TokenStream)
 ast (contract)   -> types
-diagnostics      -> (no internal compiler dependencies)
 core             -> types, lexer (Token/TokenStream), ast (AstNode)
 parser           -> diagnostics, core, lexer, ast
 semantic         -> diagnostics, core, ast, types
@@ -300,7 +312,8 @@ integration      -> all module contracts (orchestration layer)
 ```
 
 Rules enforced by this graph:
-- `types`, `diagnostics`, and minimal `lexer` token contracts (`Token`, `TokenStream`) have zero internal compiler dependencies.
+- `types` and `diagnostics` (`SourceLocation`) have zero internal compiler dependencies.
+- `lexer` token contracts (`TokenType`, `Token`, `TokenStream`) depend only on `diagnostics.SourceLocation`.
 - `core` defines `AbstractTypeParser` and the `AssemblyBackend` SPI port, while `codegen` implements `AssemblyBackend` — keeping `core` and `codegen` completely acyclic.
 - `codegen` depends on `semantic` / `ast` / `types` / `core`, never on `lexer` or `parser`.
 - `parser` depends on `lexer` contracts, `core`, and `ast`, never on `semantic` or `codegen`.

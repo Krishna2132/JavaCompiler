@@ -55,10 +55,12 @@ mvn clean package
 
 ## Current Project Status
 
-- **Milestone 01 — Maven Project Initialization:** Completed (`393a398`).
-- **Milestone 02 — Common Compiler Architecture:** Completed (`60a4b4f`).
-- **Milestone 03 — Abstract Type Parser & Essential Shared Contracts:** Completed.
-  - Implemented essential contracts: `TypeCategory`, `TypeDescriptor`, `Token`, `TokenStream`, `AstNode`, `AssemblyGenerationContext`, and `AssemblyBackend`.
-  - Implemented `AbstractTypeParser<T extends AstNode>` in `rkcc.compiler.core` with input/output validation and backend delegation.
-  - Verified with `mvn clean test`: 10 tests passing (`BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9).
-- **Not Yet Implemented:** Full `Lexer`, `Parser`, concrete AST nodes, `SemanticAnalyzer`, concrete Java type handlers (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types), `AssemblyBackend` / `CodeGenerator` backend, `DiagnosticReporter`, and `CompilerPipeline`.
+- **Milestone 01 — Maven Project Initialization:** Completed (`e3d16e0`).
+- **Milestone 02 — Common Compiler Architecture:** Completed (`c0f0a5f`).
+- **Milestone 03 — Abstract Type Parser & Essential Shared Contracts:** Completed (`2d6148f`, `87509dd`, `c16fe87`, `9057086`).
+- **Milestone 04 — Token Model & Source Location:** Completed.
+  - Implemented `SourceLocation` (`rkcc.compiler.diagnostics`) with 1-based `line`/`column` and 0-based `offset` validation.
+  - Implemented `TokenType` (`rkcc.compiler.lexer`) covering Java primitive keywords, identifiers (`String` treated as `IDENTIFIER`), literals, arithmetic, assignment, bitwise, comparison, logical, increment/decrement, delimiters, and `EOF`.
+  - Evolved `Token` (`rkcc.compiler.lexer`) into an immutable `record Token(TokenType type, String lexeme, SourceLocation location)` and updated `TokenStream.match(TokenType)`.
+  - Verified with `mvn clean test`: 21 tests passing (`BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `SourceLocationTest`: 3, `TokenTest`: 5, `TokenTypeTest`: 3).
+- **Not Yet Implemented:** Concrete `Lexer` scanner, `Parser`, concrete AST nodes, `SemanticAnalyzer`, concrete Java type handlers (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types), `AssemblyBackend` / `CodeGenerator` backend, full `DiagnosticReporter`, and `CompilerPipeline`.

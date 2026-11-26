@@ -11,8 +11,10 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import rkcc.compiler.ast.AstNode;
+import rkcc.compiler.diagnostics.SourceLocation;
 import rkcc.compiler.lexer.Token;
 import rkcc.compiler.lexer.TokenStream;
+import rkcc.compiler.lexer.TokenType;
 import rkcc.compiler.types.TypeCategory;
 import rkcc.compiler.types.TypeDescriptor;
 
@@ -80,11 +82,11 @@ class AbstractTypeParserTest {
     void validatesTokenStreamSupportAndParsesConstructs() {
         TestTypeParser parser = new TestTypeParser(TEST_INT_DESCRIPTOR);
         TokenStream validTokens = new TestTokenStream(List.of(
-                new TestToken("KEYWORD", "int"),
-                new TestToken("IDENTIFIER", "count"),
-                new TestToken("SEMICOLON", ";")));
+                new Token(TokenType.INT, "int", new SourceLocation(1, 1, 0)),
+                new Token(TokenType.IDENTIFIER, "count", new SourceLocation(1, 5, 4)),
+                new Token(TokenType.SEMICOLON, ";", new SourceLocation(1, 10, 9))));
         TokenStream otherTokens = new TestTokenStream(List.of(
-                new TestToken("KEYWORD", "boolean")));
+                new Token(TokenType.BOOLEAN, "boolean", SourceLocation.START)));
         TokenStream exhaustedTokens = new TestTokenStream(List.of());
 
         assertThrows(IllegalArgumentException.class, () -> parser.supports((TokenStream) null));
@@ -96,7 +98,7 @@ class AbstractTypeParserTest {
         assertEquals("TestTypeConstruct", parsed.nodeKind());
         assertEquals("int", parsed.lexeme());
         assertEquals(Optional.of(TEST_INT_DESCRIPTOR), parsed.typeDescriptor());
-        assertEquals("IDENTIFIER", validTokens.peek().kind());
+        assertEquals(TokenType.IDENTIFIER, validTokens.peek().type());
     }
 
     @Test
@@ -104,7 +106,7 @@ class AbstractTypeParserTest {
         TestTypeParser parser = new TestTypeParser(TEST_INT_DESCRIPTOR);
         TokenStream exhaustedTokens = new TestTokenStream(List.of());
         TokenStream unsupportedTokens = new TestTokenStream(List.of(
-                new TestToken("KEYWORD", "float")));
+                new Token(TokenType.FLOAT, "float", SourceLocation.START)));
 
         assertThrows(IllegalArgumentException.class, () -> parser.parse(null));
         assertThrows(IllegalStateException.class, () -> parser.parse(exhaustedTokens));
@@ -127,7 +129,8 @@ class AbstractTypeParserTest {
             }
         };
         assertThrows(IllegalStateException.class,
-                () -> nullResultParser.parse(new TestTokenStream(List.of(new TestToken("KEYWORD", "int")))));
+                () -> nullResultParser.parse(new TestTokenStream(List.of(
+                        new Token(TokenType.INT, "int", SourceLocation.START)))));
 
         AbstractTypeParser<TestAstNode> mismatchedNodeParser = new AbstractTypeParser<>() {
             @Override
@@ -146,7 +149,8 @@ class AbstractTypeParserTest {
             }
         };
         assertThrows(IllegalStateException.class,
-                () -> mismatchedNodeParser.parse(new TestTokenStream(List.of(new TestToken("KEYWORD", "int")))));
+                () -> mismatchedNodeParser.parse(new TestTokenStream(List.of(
+                        new Token(TokenType.INT, "int", SourceLocation.START)))));
 
         AbstractTypeParser<TestAstNode> nullDescriptorParser = new AbstractTypeParser<>() {
             @Override
@@ -285,15 +289,13 @@ class AbstractTypeParserTest {
         }
     }
 
-    private record TestToken(String kind, String lexeme) implements Token {}
-
     private record TestAstNode(
             String nodeKind,
             String lexeme,
             Optional<TypeDescriptor> typeDescriptor) implements AstNode {}
 
     private static final class TestTokenStream implements TokenStream {
-        private static final Token EOF_TOKEN = new TestToken("EOF", "");
+        private static final Token EOF_TOKEN = Token.eof(SourceLocation.START);
         private final List<Token> tokens;
         private int index = 0;
 
@@ -329,8 +331,8 @@ class AbstractTypeParserTest {
         }
 
         @Override
-        public boolean match(String expectedKind) {
-            if (!isAtEnd() && peek().kind().equals(expectedKind)) {
+        public boolean match(TokenType expectedType) {
+            if (!isAtEnd() && peek().is(expectedType)) {
                 advance();
                 return true;
             }
