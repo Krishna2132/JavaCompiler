@@ -12,22 +12,23 @@
   - Minimal `BuildVerificationTest.java`.
 
 ### Milestone 02 — Common Compiler Architecture
-- **Status:** Completed (pending final commit verification in current milestone)
+- **Status:** Completed and verified
+- **Commit:** `60a4b4f` (`feat: establish modular compiler architecture`)
 - **Deliverables:**
   - Root [AGENTS.md](../AGENTS.md) establishing project context, team ownership, Git rules, and testing standards.
-  - Nine modular Java packages documented via `package-info.java`:
-    - `rkcc.compiler.core`
-    - `rkcc.compiler.lexer`
-    - `rkcc.compiler.parser`
-    - `rkcc.compiler.ast`
-    - `rkcc.compiler.semantic`
-    - `rkcc.compiler.types`
-    - `rkcc.compiler.codegen`
-    - `rkcc.compiler.integration`
-    - `rkcc.compiler.diagnostics`
-  - Architecture blueprint in [ARCHITECTURE.md](ARCHITECTURE.md), including stage specifications, Mermaid pipeline diagram, `AbstractTypeParser` contract design, proposed shared interface signatures, and Java type extensibility roadmap.
-  - Collaboration rules in [TEAM_CONTRACT.md](TEAM_CONTRACT.md).
-  - Progress tracking in [PROGRESS.md](PROGRESS.md) and updated [README.md](../README.md).
+  - Nine modular Java packages documented via `package-info.java`.
+  - Architecture blueprint in [ARCHITECTURE.md](ARCHITECTURE.md), collaboration rules in [TEAM_CONTRACT.md](TEAM_CONTRACT.md), progress tracking in [PROGRESS.md](PROGRESS.md), and updated [README.md](../README.md).
+
+### Milestone 03 — Abstract Type Parser & Essential Shared Contracts
+- **Status:** Completed (pending final documentation commit in current milestone)
+- **Commits:**
+  - `2ed600a` — `feat: define essential compiler contracts`
+  - `06ec93e` — `feat: implement abstract type parser`
+  - `9aa318b` — `test: validate abstract type parser behavior`
+- **Deliverables:**
+  - Essential shared contracts: `TypeCategory`, `TypeDescriptor` (`rkcc.compiler.types`), `Token`, `TokenStream` (`rkcc.compiler.lexer`), `AstNode` (`rkcc.compiler.ast`), `AssemblyGenerationContext`, `AssemblyBackend` (`rkcc.compiler.core`).
+  - Reusable generic abstract base class `AbstractTypeParser<T extends AstNode>` in `rkcc.compiler.core` with input/output validation and backend delegation.
+  - Comprehensive JUnit 5 unit tests in [AbstractTypeParserTest.java](../src/test/java/rkcc/compiler/core/AbstractTypeParserTest.java) using test-only subclasses and test doubles.
 
 ---
 
@@ -35,11 +36,11 @@
 
 | Milestone | Scope | Primary Owner(s) | Status |
 | --- | --- | --- | --- |
-| **Milestone 03** | Shared core contracts (`diagnostics`, `core`, `types` interfaces), `AbstractTypeParser.java`, and `Lexer` + unit tests | Krishna | Pending |
-| **Milestone 04** | Concrete AST nodes and `Parser` with `AbstractTypeParser` integration + unit tests | Jatin | Pending |
-| **Milestone 05** | Integer type system and `SemanticAnalyzer` producing `TypedAstNode` + unit tests | Janesh | Pending |
-| **Milestone 06** | x86 assembly `CodeGenerator` backend + unit tests | Riya | Pending |
-| **Milestone 07** | End-to-end `CompilerPipeline` wiring and integration test suite | Krishna (+ Team) | Pending |
+| **Milestone 04** | Diagnostics (`DiagnosticReporter`, `SourceSpan`) & `Lexer` + unit tests | Krishna | Pending |
+| **Milestone 05** | Concrete AST nodes and `Parser` with `AbstractTypeParser` integration + unit tests | Jatin | Pending |
+| **Milestone 06** | Integer type system (`int` etc.) and `SemanticAnalyzer` producing `TypedAstNode` + unit tests | Janesh | Pending |
+| **Milestone 07** | x86 assembly `AssemblyBackend` / `CodeGenerator` implementation + unit tests | Riya | Pending |
+| **Milestone 08** | End-to-end `CompilerPipeline` wiring and integration test suite | Krishna (+ Team) | Pending |
 | **Future** | Extended Java types (`byte`, `short`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types) | Team | Planned |
 
 ---
@@ -49,17 +50,21 @@
 - **Milestone 01 (`393a398`):**
   - Command: `mvn clean test`
   - Outcome: `BUILD SUCCESS` (`Tests run: 1, Failures: 0, Errors: 0, Skipped: 0` — `rkcc.compiler.BuildVerificationTest`)
-- **Milestone 02:**
-  - Verified with `mvn clean test` (all 9 `package-info.java` declarations compile cleanly with Java 17 target, and `BuildVerificationTest` passes: `Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`).
+- **Milestone 02 (`60a4b4f`):**
+  - Command: `mvn clean test`
+  - Outcome: `BUILD SUCCESS` (`Tests run: 1, Failures: 0, Errors: 0, Skipped: 0` — `rkcc.compiler.BuildVerificationTest`, all 9 `package-info.java` declarations compiled)
+- **Milestone 03:**
+  - Command: `mvn clean test`
+  - Outcome: `BUILD SUCCESS` (`Tests run: 10, Failures: 0, Errors: 0, Skipped: 0` — `BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9)
 
 ---
 
 ## 4. Known Limitations
 
-- No compiler stages (`lexer`, `parser`, `ast`, `semantic`, `types`, `codegen`, `integration`, `diagnostics`) are implemented yet; only `package-info.java` boundaries exist in `src/main/java/`.
-- `AbstractTypeParser.java` is designed in [ARCHITECTURE.md](ARCHITECTURE.md) but intentionally not implemented yet.
-- None of the Java data types (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types) are implemented yet.
-- Automated test coverage currently consists only of `BuildVerificationTest.java`.
+- Concrete compiler stages (`Lexer`, `Parser`, concrete `AstNode`s, `SemanticAnalyzer`, concrete `TypeDescriptor` implementations, `AssemblyBackend` / `CodeGenerator`, `DiagnosticReporter`, and `CompilerPipeline`) are not implemented yet.
+- None of the Java data types (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types) have concrete production handlers yet.
+- Validation in `AbstractTypeParser` currently throws standard Java exceptions (`IllegalArgumentException`, `IllegalStateException`, `UnsupportedOperationException`) because the `DiagnosticReporter` subsystem is deferred to a later milestone.
+- Automated tests currently cover build verification and `AbstractTypeParser` contract behavior via test doubles only.
 
 ---
 

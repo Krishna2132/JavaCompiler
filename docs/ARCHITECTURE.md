@@ -1,6 +1,6 @@
 # Compiler Architecture — RKCC JavaCompiler
 
-> **Status Notice (Milestone 02):** This document defines the architectural blueprint, package boundaries, stage contracts, and proposed Java interfaces for `JavaCompiler`. **No compiler stages, `AbstractTypeParser.java`, concrete AST nodes, type implementations, semantic analyzer, or assembly generator are implemented yet.** Refer to [PROGRESS.md](PROGRESS.md) for verified implementation status.
+> **Status Notice (Milestone 03):** Shared essential contracts (`TypeCategory`, `TypeDescriptor`, `Token`, `TokenStream`, `AstNode`, `AssemblyGenerationContext`, `AssemblyBackend`) and `AbstractTypeParser` are now implemented and unit-tested. **The full Lexer, Parser, concrete AST nodes, Semantic Analyzer, concrete Type implementations, Assembly Generator, DiagnosticReporter, and CompilerPipeline are not implemented yet.** Refer to [PROGRESS.md](PROGRESS.md) for verified implementation status.
 
 ## 1. Overall Compiler Architecture
 
@@ -108,11 +108,23 @@ flowchart LR
 
 ---
 
-## 5. Proposed Shared Interface Signatures
+## 5. Implemented Essential Contracts & Proposed Future Signatures
 
-> **Note:** These signatures are **architectural design proposals** documented in Markdown for Milestone 02. They are not yet compiled `.java` files so that no unresolved dependencies or premature concrete classes are introduced before Milestone 03.
+> **Milestone 03 Update:** The minimal contracts required by `AbstractTypeParser` are now implemented in Java (`TypeCategory`, `TypeDescriptor`, `Token`, `TokenStream`, `AstNode`, `AssemblyGenerationContext`, `AssemblyBackend`). Full compiler diagnostics (`Diagnostic`, `SourceSpan`, `DiagnosticReporter`), `Lexer`, `Parser`, `SemanticAnalyzer`, `CodeGenerator`, and `CompilerPipeline` remain design proposals for upcoming milestones.
 
-### Diagnostics (`rkcc.compiler.diagnostics`)
+### Implemented Shared Contracts (Milestone 03)
+
+- **`rkcc.compiler.types.TypeCategory`**: Enum classifying `INTEGRAL`, `FLOATING_POINT`, `BOOLEAN`, `CHAR`, `STRING`, `ARRAY`, `REFERENCE`, `VOID`, `UNKNOWN`.
+- **`rkcc.compiler.types.TypeDescriptor`**: Interface declaring `typeName()`, `category()`, `byteSize()`, `isSigned()`, `isPrimitive()`, and `isAssignableTo(TypeDescriptor)`.
+- **`rkcc.compiler.lexer.Token`**: Minimal token contract declaring `kind()` and `lexeme()`.
+- **`rkcc.compiler.lexer.TokenStream`**: Minimal lookahead/consumption contract declaring `peek()`, `peek(int offset)`, `advance()`, `isAtEnd()`, and `match(String expectedKind)`.
+- **`rkcc.compiler.ast.AstNode`**: Minimal AST base contract declaring `nodeKind()` and `Optional<TypeDescriptor> typeDescriptor()`.
+- **`rkcc.compiler.core.AssemblyGenerationContext`**: Immutable context carrying `getTargetArchitecture()`, `getSectionHint()`, and `getAttributes()`.
+- **`rkcc.compiler.core.AssemblyBackend`**: Backend delegation port declaring `targetName()` and `emitAssembly(AstNode, TypeDescriptor, AssemblyGenerationContext)`.
+
+### Proposed Future Contracts (Not Yet Implemented)
+
+#### Diagnostics (`rkcc.compiler.diagnostics`)
 
 ```java
 public record SourceSpan(String sourceName, int startLine, int startColumn, int endLine, int endColumn) {}
@@ -135,64 +147,21 @@ public interface DiagnosticReporter {
 }
 ```
 
-### Token & Lexer Contracts (`rkcc.compiler.lexer`)
+#### Stage Driver Contracts (`lexer`, `parser`, `semantic`, `codegen`, `integration`)
 
 ```java
-public interface Token {
-    String kind();      // Or enum TokenType defined in lexer contract
-    String lexeme();
-    SourceSpan span();
-}
-
-public interface TokenStream {
-    Token peek();
-    Token peek(int lookahead);
-    Token advance();
-    boolean isAtEnd();
-    boolean match(String expectedKind);
-}
-
 public interface Lexer {
     TokenStream tokenize(String sourceName, String sourceCode, DiagnosticReporter diagnostics);
 }
-```
-
-### Type System Contracts (`rkcc.compiler.types`)
-
-```java
-public enum TypeCategory {
-    INTEGRAL, FLOATING_POINT, BOOLEAN, CHAR, STRING, ARRAY, REFERENCE, VOID, UNKNOWN
-}
-
-public interface TypeDescriptor {
-    String name();
-    TypeCategory category();
-    int byteSize();
-    boolean isSigned();
-    boolean isAssignableTo(TypeDescriptor target);
-}
-```
-
-### AST & Parser Contracts (`rkcc.compiler.ast`, `rkcc.compiler.parser`)
-
-```java
-public interface AstNode {
-    SourceSpan span();
-    <R> R accept(AstVisitor<R> visitor);
-}
 
 public interface AstVisitor<R> {
-    // Visitor dispatch methods defined alongside concrete AST node hierarchy in Milestone 04+
+    // Visitor dispatch methods defined alongside concrete AST node hierarchy
 }
 
 public interface Parser {
     AstNode parse(TokenStream tokens, DiagnosticReporter diagnostics);
 }
-```
 
-### Semantic & Typed AST Contracts (`rkcc.compiler.semantic`)
-
-```java
 public interface TypedAstNode {
     AstNode sourceNode();
     TypeDescriptor resolvedType();
@@ -202,11 +171,7 @@ public interface TypedAstNode {
 public interface SemanticAnalyzer {
     TypedAstNode analyze(AstNode astRoot, DiagnosticReporter diagnostics);
 }
-```
 
-### Code Generation & Pipeline Contracts (`rkcc.compiler.codegen`, `rkcc.compiler.integration`)
-
-```java
 public record AssemblyArtifact(String targetName, String assemblyText) {}
 
 public interface CodeGenerator {
@@ -225,55 +190,81 @@ public interface CompilerPipeline {
 
 ---
 
-## 6. `AbstractTypeParser.java` Contract Design
+## 6. `AbstractTypeParser.java` Implementation
 
-> **Restriction Check:** `AbstractTypeParser.java` is **not** implemented in Milestone 02. Below is its complete architectural design for implementation in Milestone 03.
+`AbstractTypeParser<T extends AstNode>` is implemented in `rkcc.compiler.core` as the common template-method base class for Java type parsing and backend assembly delegation.
 
-### Design Purpose
+### Architectural Correction from Milestone 02
 
-`AbstractTypeParser` (planned for `rkcc.compiler.core`) provides a uniform extension point for recognizing and parsing type-specific Java constructs (such as type declarations, typed literals, and type-specific expressions/initializers) without coupling the main `Parser` to every future Java data type.
+Three deliberate corrections were made while turning the Milestone 02 sketch into compilable Milestone 03 code:
+1. **Acyclic Backend Delegation (`AssemblyBackend` & `AssemblyGenerationContext` in `rkcc.compiler.core`):** Milestone 02 placed backend contracts only in `rkcc.compiler.codegen` while planning for `AbstractTypeParser` in `core` to support assembly delegation. Placing `AssemblyBackend` and `AssemblyGenerationContext` in `core` applies Dependency Inversion so `core` never depends on `codegen`, while `codegen` implements `AssemblyBackend`.
+2. **Acyclic Token & AST Contracts:** `Token`, `TokenStream` (`lexer`), and `AstNode` (`ast`, depending only on `types`) have zero dependencies on `core`, allowing `AbstractTypeParser` in `core` to reference them cleanly.
+3. **Validation Exceptions Before Full Diagnostics:** Because `DiagnosticReporter` is deferred to a later milestone, `AbstractTypeParser` enforces strict validation via `IllegalArgumentException`, `IllegalStateException`, and `UnsupportedOperationException` rather than inventing premature diagnostic stubs.
 
-### Proposed Contract Structure
+### Implemented Method Signatures
 
 ```java
-public abstract class AbstractTypeParser {
+public abstract class AbstractTypeParser<T extends AstNode> {
 
-    /**
-     * Identifies the canonical Java type handled by this parser extension
-     * (e.g., "int", "long", "boolean", "String", etc.).
-     */
-    public abstract TypeDescriptor getSupportedType();
+    protected AbstractTypeParser()
+    protected AbstractTypeParser(AssemblyBackend assemblyBackend)
 
-    /**
-     * Fast lookahead check indicating whether the current position in the
-     * TokenStream can be parsed by this handler (e.g., type keyword or typed literal).
-     */
-    public abstract boolean supports(TokenStream tokens);
+    public abstract TypeDescriptor getTypeDescriptor();
+    protected abstract boolean supportsCurrentTokens(TokenStream tokens);
+    protected abstract T parseTypeConstruct(TokenStream tokens);
 
-    /**
-     * Parses a type declaration or typed literal/expression fragment from the
-     * token stream into a structured AST representation, reporting any syntax
-     * errors via the provided DiagnosticReporter.
-     */
-    public abstract AstNode parseTypeConstruct(TokenStream tokens, DiagnosticReporter diagnostics);
+    public final String getSupportedTypeName()
+    public boolean supports(String typeName)
+    public final boolean supports(TokenStream tokens)
+    public final void requireSupportedType(String typeName)
+    public final T parse(TokenStream tokens)
 
-    /**
-     * Optional hook returning semantic constraints or type metadata hints associated
-     * with the parsed AST construct, consumed by SemanticAnalyzer without duplicating
-     * symbol-table or type-checking logic inside the parser.
-     */
-    public TypeDescriptor resolveDeclaredTypeHint() {
-        return getSupportedType();
+    public final Optional<AssemblyBackend> getAssemblyBackend()
+    public final String generateAssembly(T node, AssemblyGenerationContext context)
+    public final String generateAssembly(T node, AssemblyGenerationContext context, AssemblyBackend backend)
+
+    protected String delegateAssemblyGeneration(
+            T node, TypeDescriptor typeDescriptor, AssemblyGenerationContext context, AssemblyBackend backend)
+    protected final TypeDescriptor validatedTypeDescriptor()
+    public static String validateTypeName(String typeName)
+}
+```
+
+### Example of Extending `AbstractTypeParser`
+
+```java
+public final class ExampleCustomTypeParser extends AbstractTypeParser<AstNode> {
+    private final TypeDescriptor descriptor;
+
+    public ExampleCustomTypeParser(TypeDescriptor descriptor, AssemblyBackend backend) {
+        super(backend);
+        this.descriptor = descriptor;
+    }
+
+    @Override
+    public TypeDescriptor getTypeDescriptor() {
+        return descriptor;
+    }
+
+    @Override
+    protected boolean supportsCurrentTokens(TokenStream tokens) {
+        return descriptor.typeName().equals(tokens.peek().lexeme());
+    }
+
+    @Override
+    protected AstNode parseTypeConstruct(TokenStream tokens) {
+        tokens.advance();
+        // Construct and return concrete AstNode (implemented in Jatin's ast milestone)
+        throw new UnsupportedOperationException("Concrete AST nodes belong to Milestone 04+");
     }
 }
 ```
 
 ### How `AbstractTypeParser` Enforces Separation of Concerns
 
-1. **Extensible Type Handlers:** The main `Parser` holds an ordered registry of `AbstractTypeParser` instances (`TypeParserRegistry` in `core`). Adding a new type (e.g., `double` or `String`) only requires registering a new subclass rather than rewriting core parser branches.
-2. **No Parser Duplication:** `Parser` owns overall compilation-unit grammar, operator precedence, control-flow structure, and error synchronization; `AbstractTypeParser` subclasses focus strictly on type-specific syntax recognition and AST node construction.
-3. **Clean Semantic Integration:** `AbstractTypeParser` exposes `TypeDescriptor` metadata (`getSupportedType()` / `resolveDeclaredTypeHint()`), allowing `SemanticAnalyzer` to validate declarations, promotions, and symbol scopes cleanly without putting symbol tables inside `AbstractTypeParser`.
-4. **Backend Support Without Codegen Coupling:** `AbstractTypeParser` **never** emits x86 assembly or knows about registers/NASM. Instead, the `TypeDescriptor` carried into the `TypedAstNode` gives `CodeGenerator` everything it needs (size, signedness, category) to emit target instructions.
+1. **Extensible Type Handlers:** New Java types can be plugged in via subclasses of `AbstractTypeParser<T>` without rewriting core `Parser` control flow.
+2. **No Parser Duplication:** `Parser` owns compilation-unit grammar, operator precedence, and recovery; `AbstractTypeParser` focuses strictly on type-specific syntax recognition and validated AST construction.
+3. **Backend Delegation Without Codegen Duplication:** `AbstractTypeParser` never emits x86 assembly directly; `generateAssembly(...)` validates the AST node, type metadata, and context, then delegates emission to `AssemblyBackend.emitAssembly(...)`.
 
 ---
 
@@ -297,21 +288,22 @@ The architecture (`TypeDescriptor`, `TypeCategory`, `AbstractTypeParser`) is exp
 Allowed compile-time dependency direction (strictly acyclic):
 
 ```text
+types            -> (no internal compiler dependencies)
+lexer (contract) -> (no internal compiler dependencies)
+ast (contract)   -> types
 diagnostics      -> (no internal compiler dependencies)
-types            -> diagnostics
-core             -> diagnostics, types
-lexer            -> diagnostics, core
-ast              -> diagnostics, types, core
-parser           -> diagnostics, core, lexer (contracts), ast
+core             -> types, lexer (Token/TokenStream), ast (AstNode)
+parser           -> diagnostics, core, lexer, ast
 semantic         -> diagnostics, core, ast, types
-codegen          -> diagnostics, core, types, semantic (Typed AST contracts)
+codegen          -> diagnostics, core (AssemblyBackend, AssemblyGenerationContext), types, ast, semantic
 integration      -> all module contracts (orchestration layer)
 ```
 
 Rules enforced by this graph:
-- `diagnostics` sits at the bottom and has zero dependencies on any compiler stage.
-- `codegen` depends on `semantic` (Typed AST) and `types`, never on `lexer` or `parser`.
-- `parser` depends on `lexer` token/stream contracts and `ast`, never on `semantic` or `codegen`.
+- `types`, `diagnostics`, and minimal `lexer` token contracts (`Token`, `TokenStream`) have zero internal compiler dependencies.
+- `core` defines `AbstractTypeParser` and the `AssemblyBackend` SPI port, while `codegen` implements `AssemblyBackend` — keeping `core` and `codegen` completely acyclic.
+- `codegen` depends on `semantic` / `ast` / `types` / `core`, never on `lexer` or `parser`.
+- `parser` depends on `lexer` contracts, `core`, and `ast`, never on `semantic` or `codegen`.
 
 ---
 

@@ -56,7 +56,9 @@ mvn clean package
 ## Current Project Status
 
 - **Milestone 01 — Maven Project Initialization:** Completed (`393a398`).
-- **Milestone 02 — Common Compiler Architecture:** Completed.
-  - Established `AGENTS.md`, package structure (`package-info.java` across all 9 packages), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/TEAM_CONTRACT.md](docs/TEAM_CONTRACT.md), and [docs/PROGRESS.md](docs/PROGRESS.md).
-  - Designed the `AbstractTypeParser` contract, shared stage interfaces, and Java type extensibility roadmap.
-- **Not Yet Implemented:** Lexer, `AbstractTypeParser.java`, Parser, concrete AST nodes, Semantic Analyzer, Type implementations, Assembly Generator, and Pipeline integration are planned for upcoming milestones.
+- **Milestone 02 — Common Compiler Architecture:** Completed (`60a4b4f`).
+- **Milestone 03 — Abstract Type Parser & Essential Shared Contracts:** Completed.
+  - Implemented essential contracts: `TypeCategory`, `TypeDescriptor`, `Token`, `TokenStream`, `AstNode`, `AssemblyGenerationContext`, and `AssemblyBackend`.
+  - Implemented `AbstractTypeParser<T extends AstNode>` in `rkcc.compiler.core` with input/output validation and backend delegation.
+  - Verified with `mvn clean test`: 10 tests passing (`BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9).
+- **Not Yet Implemented:** Full `Lexer`, `Parser`, concrete AST nodes, `SemanticAnalyzer`, concrete Java type handlers (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types), `AssemblyBackend` / `CodeGenerator` backend, `DiagnosticReporter`, and `CompilerPipeline`.
