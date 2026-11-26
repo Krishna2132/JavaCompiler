@@ -88,7 +88,8 @@ class TokenTest {
     void integratesWithTokenStreamAndAbstractTypeParser() {
         List<Token> tokens = List.of(
                 new Token(TokenType.INT, "int", new SourceLocation(1, 1, 0)),
-                new Token(TokenType.IDENTIFIER, "x", new SourceLocation(1, 5, 4))
+                new Token(TokenType.IDENTIFIER, "x", new SourceLocation(1, 5, 4)),
+                Token.eof(new SourceLocation(1, 6, 5))
         );
         TokenStream stream = new ListTokenStream(tokens);
 
@@ -157,45 +158,5 @@ class TokenTest {
         assertEquals("TestTypeKeyword:int", node.nodeKind());
         assertTrue(stream.match(TokenType.IDENTIFIER));
         assertTrue(stream.isAtEnd());
-    }
-
-    private static final class ListTokenStream implements TokenStream {
-        private static final Token EOF = Token.eof(SourceLocation.START);
-        private final List<Token> tokens;
-        private int cursor = 0;
-
-        private ListTokenStream(List<Token> tokens) {
-            this.tokens = List.copyOf(tokens);
-        }
-
-        @Override
-        public Token peek() {
-            return peek(0);
-        }
-
-        @Override
-        public Token peek(int offset) {
-            int idx = cursor + offset;
-            return (idx >= 0 && idx < tokens.size()) ? tokens.get(idx) : EOF;
-        }
-
-        @Override
-        public Token advance() {
-            return isAtEnd() ? EOF : tokens.get(cursor++);
-        }
-
-        @Override
-        public boolean isAtEnd() {
-            return cursor >= tokens.size();
-        }
-
-        @Override
-        public boolean match(TokenType expectedType) {
-            if (!isAtEnd() && peek().is(expectedType)) {
-                advance();
-                return true;
-            }
-            return false;
-        }
     }
 }

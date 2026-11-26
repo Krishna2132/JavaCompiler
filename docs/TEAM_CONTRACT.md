@@ -2,7 +2,7 @@
 
 This document defines the module boundaries, shared data contracts, branching rules, and testing expectations enabling **Krishna**, **Jatin**, **Janesh**, and **Riya** to work in parallel and integrate cleanly.
 
-> **Status Notice (Milestone 04):** Shared contracts (`SourceLocation`, `TokenType`, `Token`, `TokenStream`, `TypeCategory`, `TypeDescriptor`, `AstNode`, `AssemblyGenerationContext`, `AssemblyBackend`) and `AbstractTypeParser` are implemented and verified in Java. Remaining stage contracts (`DiagnosticReporter`, `Lexer`, `Parser`, `SemanticAnalyzer`, `CodeGenerator`, `CompilerPipeline`) will be added in upcoming milestones.
+> **Status Notice (Milestone 05):** Shared contracts (`SourceLocation`, `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `UnexpectedTokenException`, `TypeCategory`, `TypeDescriptor`, `AstNode`, `AssemblyGenerationContext`, `AssemblyBackend`) and `AbstractTypeParser` are implemented and verified in Java. Remaining stage contracts (`DiagnosticReporter`, `Lexer`, `Parser`, `SemanticAnalyzer`, `CodeGenerator`, `CompilerPipeline`) will be added in upcoming milestones.
 
 ---
 
@@ -58,9 +58,9 @@ Modules exchange data strictly via the following boundaries:
 
 ### Core Contract Summary (Implemented vs. Planned)
 
-**Implemented in Milestones 03–04:**
+**Implemented in Milestones 03–05:**
 - `SourceLocation` (`rkcc.compiler.diagnostics`) — immutable 1-based `line`/`column` and 0-based `offset` coordinates with validation and `formatCompact()`
-- `TokenType`, `Token`, `TokenStream` (`rkcc.compiler.lexer`) — strongly typed `TokenType` enum, immutable `record Token(TokenType type, String lexeme, SourceLocation location)`, and `TokenStream` (`peek()`, `peek(int)`, `advance()`, `isAtEnd()`, `match(TokenType)`)
+- `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `UnexpectedTokenException` (`rkcc.compiler.lexer`) — strongly typed `TokenType` enum, immutable `record Token(TokenType type, String lexeme, SourceLocation location)`, full `TokenStream` (`peek()`, `peek(int)`, `advance()`, `previous()`, `check(TokenType)`, `match(TokenType)`, `match(TokenType...)`, `consume(TokenType, String)`, `isAtEnd()`, `position()`), and validated `ListTokenStream` implementation
 - `TypeCategory`, `TypeDescriptor` (`rkcc.compiler.types`) — `typeName()`, `category()`, `byteSize()`, `isSigned()`, `isPrimitive()`, `isAssignableTo(TypeDescriptor)`
 - `AstNode` (`rkcc.compiler.ast`) — `nodeKind()`, `typeDescriptor()`
 - `AssemblyGenerationContext`, `AssemblyBackend` (`rkcc.compiler.core`) — `targetName()`, `emitAssembly(AstNode, TypeDescriptor, AssemblyGenerationContext)`

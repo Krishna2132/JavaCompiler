@@ -1,6 +1,6 @@
 # Compiler Architecture — RKCC JavaCompiler
 
-> **Status Notice (Milestone 04):** Shared essential contracts, `AbstractTypeParser`, `SourceLocation`, `TokenType`, immutable `Token`, and strongly typed `TokenStream` are implemented and unit-tested. **The full Lexer scanner, Parser, concrete AST nodes, Semantic Analyzer, concrete Type implementations, Assembly Generator, DiagnosticReporter, and CompilerPipeline are not implemented yet.** Refer to [PROGRESS.md](PROGRESS.md) for verified implementation status.
+> **Status Notice (Milestone 05):** Shared essential contracts, `AbstractTypeParser`, `SourceLocation`, `TokenType`, immutable `Token`, expanded `TokenStream`, `ListTokenStream`, and `UnexpectedTokenException` are implemented and unit-tested. **The concrete Lexer scanner, Parser, concrete AST nodes, Semantic Analyzer, concrete Type implementations, Assembly Generator, full DiagnosticReporter, and CompilerPipeline are not implemented yet.** Refer to [PROGRESS.md](PROGRESS.md) for verified implementation status.
 
 ## 1. Overall Compiler Architecture
 
@@ -110,28 +110,44 @@ flowchart LR
 
 ## 5. Implemented Essential Contracts & Proposed Future Signatures
 
-> **Milestone 04 Update:** Milestone 03 contracts remain in place, and the minimal `Token` interface has been evolved into a single immutable, strongly typed `Token` record backed by `TokenType` and `SourceLocation` (`TokenStream.match(TokenType)` updated accordingly). Full compiler diagnostics (`Diagnostic`, `DiagnosticReporter`), `Lexer`, `Parser`, `SemanticAnalyzer`, `CodeGenerator`, and `CompilerPipeline` remain planned for upcoming milestones.
+> **Milestone 05 Update:** `TokenStream` has been expanded with `previous()`, `check(TokenType)`, `match(TokenType...)`, `consume(TokenType, String)`, and `position()`, backed by the production `ListTokenStream` and minimal `UnexpectedTokenException`. Full compiler diagnostics (`Diagnostic`, `DiagnosticReporter`), concrete `Lexer` scanner, `Parser`, `SemanticAnalyzer`, `CodeGenerator`, and `CompilerPipeline` remain planned for upcoming milestones.
 
-### Implemented Shared Contracts (Milestones 03–04)
+### Implemented Shared Contracts (Milestones 03–05)
 
 - **`rkcc.compiler.diagnostics.SourceLocation`**: Immutable `record SourceLocation(int line, int column, int offset)` enforcing 1-based `line`/`column` (`>= 1`) and 0-based `offset` (`>= 0`), plus `SourceLocation.START` and `formatCompact()`.
 - **`rkcc.compiler.lexer.TokenType`**: Enum covering primitive keywords (`BYTE`..`VOID`), identifiers (`String` treated as `IDENTIFIER`), literals (`INTEGER_LITERAL`, `FLOATING_POINT_LITERAL`, `CHARACTER_LITERAL`, `STRING_LITERAL`, `TRUE`, `FALSE`, `NULL`), arithmetic, assignment, bitwise, comparison, logical, increment/decrement, delimiters, and `EOF`.
 - **`rkcc.compiler.lexer.Token`**: Immutable `record Token(TokenType type, String lexeme, SourceLocation location)` preserving exact source lexemes, supporting empty lexeme for `EOF`, treating `MINUS` separately from numeric literals, and keeping numeric range validation out of the token layer.
-- **`rkcc.compiler.lexer.TokenStream`**: Token-access contract declaring `peek()`, `peek(int offset)`, `advance()`, `isAtEnd()`, and `match(TokenType expectedType)`.
+- **`rkcc.compiler.lexer.TokenStream`**: Token-access contract declaring `peek()`, `peek(int offset)`, `advance()`, `previous()`, `check(TokenType type)`, `match(TokenType expectedType)`, `match(TokenType... types)`, `consume(TokenType expectedType, String message)`, `isAtEnd()`, and `position()`.
+- **`rkcc.compiler.lexer.ListTokenStream`**: Validated, defensively copied list-backed `TokenStream` enforcing non-empty, single-terminal-EOF token sequences, safe repeated EOF reads, non-negative lookahead offsets, and `IllegalStateException` if `previous()` is called before advancing.
+- **`rkcc.compiler.lexer.UnexpectedTokenException`**: Minimal unchecked exception thrown by `consume(TokenType, String)` carrying expected `TokenType`, actual `Token`, and `SourceLocation`.
 - **`rkcc.compiler.types.TypeCategory`**: Enum classifying `INTEGRAL`, `FLOATING_POINT`, `BOOLEAN`, `CHAR`, `STRING`, `ARRAY`, `REFERENCE`, `VOID`, `UNKNOWN`.
 - **`rkcc.compiler.types.TypeDescriptor`**: Interface declaring `typeName()`, `category()`, `byteSize()`, `isSigned()`, `isPrimitive()`, and `isAssignableTo(TypeDescriptor)`.
 - **`rkcc.compiler.ast.AstNode`**: Minimal AST base contract declaring `nodeKind()` and `Optional<TypeDescriptor> typeDescriptor()`.
 - **`rkcc.compiler.core.AssemblyGenerationContext`**: Immutable context carrying `getTargetArchitecture()`, `getSectionHint()`, and `getAttributes()`.
 - **`rkcc.compiler.core.AssemblyBackend`**: Backend delegation port declaring `targetName()` and `emitAssembly(AstNode, TypeDescriptor, AssemblyGenerationContext)`.
 
-### Token & SourceLocation Usage Example
+### TokenStream Usage Example (`int a = 10 + 20;`)
 
 ```java
-SourceLocation loc = new SourceLocation(1, 5, 4);
-Token varName = new Token(TokenType.IDENTIFIER, "count", loc);
-Token minus = new Token(TokenType.MINUS, "-", new SourceLocation(1, 13, 12));
-Token literal = new Token(TokenType.INTEGER_LITERAL, "42", new SourceLocation(1, 14, 13));
-Token eof = Token.eof(new SourceLocation(1, 17, 16));
+TokenStream stream = new ListTokenStream(List.of(
+        new Token(TokenType.INT, "int", new SourceLocation(1, 1, 0)),
+        new Token(TokenType.IDENTIFIER, "a", new SourceLocation(1, 5, 4)),
+        new Token(TokenType.ASSIGN, "=", new SourceLocation(1, 7, 6)),
+        new Token(TokenType.INTEGER_LITERAL, "10", new SourceLocation(1, 9, 8)),
+        new Token(TokenType.PLUS, "+", new SourceLocation(1, 12, 11)),
+        new Token(TokenType.INTEGER_LITERAL, "20", new SourceLocation(1, 14, 13)),
+        new Token(TokenType.SEMICOLON, ";", new SourceLocation(1, 16, 15)),
+        Token.eof(new SourceLocation(1, 17, 16))
+));
+
+if (stream.match(TokenType.INT)) {
+    Token name = stream.consume(TokenType.IDENTIFIER, "Expected variable identifier");
+    stream.consume(TokenType.ASSIGN, "Expected '='");
+    Token lhs = stream.consume(TokenType.INTEGER_LITERAL, "Expected left operand");
+    Token op = stream.advance();
+    Token rhs = stream.consume(TokenType.INTEGER_LITERAL, "Expected right operand");
+    stream.consume(TokenType.SEMICOLON, "Expected ';'");
+}
 ```
 
 ### Proposed Future Contracts (Not Yet Implemented)

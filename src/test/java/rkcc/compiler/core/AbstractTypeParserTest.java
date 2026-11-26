@@ -15,6 +15,7 @@ import rkcc.compiler.diagnostics.SourceLocation;
 import rkcc.compiler.lexer.Token;
 import rkcc.compiler.lexer.TokenStream;
 import rkcc.compiler.lexer.TokenType;
+import rkcc.compiler.lexer.UnexpectedTokenException;
 import rkcc.compiler.types.TypeCategory;
 import rkcc.compiler.types.TypeDescriptor;
 
@@ -326,6 +327,19 @@ class AbstractTypeParserTest {
         }
 
         @Override
+        public Token previous() {
+            if (index == 0) {
+                throw new IllegalStateException("No previous token");
+            }
+            return tokens.get(index - 1);
+        }
+
+        @Override
+        public boolean check(TokenType type) {
+            return peek().is(type);
+        }
+
+        @Override
         public boolean isAtEnd() {
             return index >= tokens.size();
         }
@@ -337,6 +351,33 @@ class AbstractTypeParserTest {
                 return true;
             }
             return false;
+        }
+
+        @Override
+        public boolean match(TokenType... types) {
+            if (isAtEnd()) {
+                return false;
+            }
+            for (TokenType type : types) {
+                if (peek().is(type)) {
+                    advance();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public Token consume(TokenType expectedType, String message) {
+            if (!check(expectedType)) {
+                throw new UnexpectedTokenException(expectedType, peek(), message);
+            }
+            return expectedType == TokenType.EOF ? peek() : advance();
+        }
+
+        @Override
+        public int position() {
+            return index;
         }
     }
 
