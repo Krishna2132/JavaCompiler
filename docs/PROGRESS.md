@@ -57,9 +57,17 @@
 
 ### Milestone 07 — Compiler Diagnostics & Error Handling
 - **Status:** Completed and verified
+- **Commit:** `d6e6ea9` (`feat(diagnostics): implement centralized compiler error reporting`)
 - **Deliverables:**
-  - Centralized diagnostics in `rkcc.compiler.diagnostics`: `DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode` (`LEX001`–`LEX006`, `SYN001`–`SYN004`, `SEM001`–`SEM006`, `GEN001`–`GEN003`, `INT001`), immutable `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, and `CompilerException`.
-  - Integrated `LexicalException` and `UnexpectedTokenException` into `CompilerException`, added `DiagnosticCollector` overloads on `Lexer` and `TokenStream`, and verified formatted output with [DiagnosticsTest.java](../src/test/java/rkcc/compiler/diagnostics/DiagnosticsTest.java) and [DiagnosticIntegrationTest.java](../src/test/java/rkcc/compiler/diagnostics/DiagnosticIntegrationTest.java).
+  - Centralized diagnostics in `rkcc.compiler.diagnostics` (`DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, `CompilerException`).
+  - Integrated `Lexer`, `LexicalException`, `TokenStream`, and `UnexpectedTokenException` with `DiagnosticCollector` and `CompilerException`.
+
+### Milestone 08 — Type Registry & Type Parser Management
+- **Status:** Completed and verified
+- **Deliverables:**
+  - Implemented `TypeRegistry` (`rkcc.compiler.core`) supporting atomic single/multi-type `AbstractTypeParser` registration, duplicate/conflict detection, case-sensitive lookup, unregistration, immutable snapshots, token-based type resolution (primitive keywords + `IDENTIFIER("String")`), and `DiagnosticCollector` / `CompilerException` integration.
+  - Extended `AbstractTypeParser` with `getSupportedTypeNames()` and added classification helpers on `TypeCategory`.
+  - Verified with comprehensive unit and integration-example tests (test-only parser doubles) in [TypeRegistryTest.java](../src/test/java/rkcc/compiler/core/TypeRegistryTest.java).
 
 ---
 
@@ -67,10 +75,10 @@
 
 | Milestone | Scope | Primary Owner(s) | Status |
 | --- | --- | --- | --- |
-| **Milestone 08** | Concrete AST nodes and `Parser` with `AbstractTypeParser` integration + unit tests | Jatin | Pending |
-| **Milestone 09** | Integer type system (`int` etc.) and `SemanticAnalyzer` producing `TypedAstNode` + unit tests | Janesh | Pending |
-| **Milestone 10** | x86 assembly `AssemblyBackend` / `CodeGenerator` implementation + unit tests | Riya | Pending |
-| **Milestone 11** | End-to-end `CompilerPipeline` wiring and integration test suite | Krishna (+ Team) | Pending |
+| **Milestone 09** | Concrete AST nodes and `Parser` with `TypeRegistry` / `AbstractTypeParser` integration + unit tests | Jatin | Pending |
+| **Milestone 10** | Integer type system (`int` etc.) and `SemanticAnalyzer` producing `TypedAstNode` + unit tests | Janesh | Pending |
+| **Milestone 11** | x86 assembly `AssemblyBackend` / `CodeGenerator` implementation + unit tests | Riya | Pending |
+| **Milestone 12** | End-to-end `CompilerPipeline` wiring and integration test suite | Krishna (+ Team) | Pending |
 | **Future** | Extended Java types (`byte`, `short`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types) | Team | Planned |
 
 ---
@@ -83,18 +91,18 @@
 - **Milestone 04 (`bfbd94f`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 21, Failures: 0, Errors: 0, Skipped: 0`)
 - **Milestone 05 (`5e95aae`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 30, Failures: 0, Errors: 0, Skipped: 0`)
 - **Milestone 06 (`4448d80`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 39, Failures: 0, Errors: 0, Skipped: 0`)
-- **Milestone 07:**
+- **Milestone 07 (`d6e6ea9`):** `mvn clean test` -> `BUILD SUCCESS` (`Tests run: 50, Failures: 0, Errors: 0, Skipped: 0`)
+- **Milestone 08:**
   - Command: `mvn clean test`
-  - Outcome: `BUILD SUCCESS` (`Tests run: 50, Failures: 0, Errors: 0, Skipped: 0` — `BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `DiagnosticIntegrationTest`: 6, `DiagnosticsTest`: 5, `SourceLocationTest`: 3, `LexerTest`: 9, `ListTokenStreamTest`: 9, `TokenTest`: 5, `TokenTypeTest`: 3)
+  - Outcome: `BUILD SUCCESS` (`Tests run: 56, Failures: 0, Errors: 0, Skipped: 0` — `BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `TypeRegistryTest`: 6, `DiagnosticIntegrationTest`: 6, `DiagnosticsTest`: 5, `SourceLocationTest`: 3, `LexerTest`: 9, `ListTokenStreamTest`: 9, `TokenTest`: 5, `TokenTypeTest`: 3)
 
 ---
 
 ## 4. Known Limitations
 
-- Concrete compiler stages (`Parser`, concrete `AstNode`s, `SemanticAnalyzer`, concrete `TypeDescriptor` implementations, `AssemblyBackend` / `CodeGenerator`, and `CompilerPipeline`) are not implemented yet.
-- None of the Java data types (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types) have concrete semantic/codegen handlers yet.
-- `Lexer` currently stops on the first lexical error (`LexicalException`) after recording its diagnostic in `DiagnosticCollector`, rather than attempting multi-error lexical recovery.
-- `SYN*`, `SEM*`, `TYP*`, and `GEN*` diagnostic codes beyond `TokenStream` (`SYN001`, `SYN003`) are reserved and tested structurally, awaiting parser, semantic, and codegen module implementations.
+- Concrete compiler stages (`Parser`, concrete `AstNode`s, `SemanticAnalyzer`, production `TypeDescriptor` / `AbstractTypeParser` implementations, `AssemblyBackend` / `CodeGenerator`, and `CompilerPipeline`) are not implemented yet.
+- None of the Java data types (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types) have concrete production parser/semantic/codegen implementations yet; `TypeRegistryTest` exercises the registry strictly via test-only parsers.
+- `TypeRegistry.resolve(Token)` intentionally resolves only Java primitive keywords (`byte`..`void`) and `IDENTIFIER("String")` so arbitrary identifiers are not misclassified before general reference-type resolution exists.
 
 ---
 

@@ -61,8 +61,9 @@ mvn clean package
 - **Milestone 04 — Token Model & Source Location:** Completed (`bfbd94f`).
 - **Milestone 05 — Token Stream Implementation:** Completed (`5e95aae`).
 - **Milestone 06 — Java Lexer Implementation:** Completed (`4448d80`).
-- **Milestone 07 — Compiler Diagnostics & Error Handling:** Completed.
-  - Implemented centralized diagnostics in `rkcc.compiler.diagnostics`: `DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, immutable `Diagnostic`, session-scoped `DiagnosticCollector`, caret-based `DiagnosticFormatter`, and `CompilerException`.
-  - Integrated `Lexer` (`tokenize(..., DiagnosticCollector)`), `LexicalException`, `TokenStream.consume(..., DiagnosticCollector)`, and `UnexpectedTokenException` with `CompilerException` and stable diagnostic codes (`LEX001`–`LEX006`, `SYN001`, `SYN003`).
-  - Verified with `mvn clean test`: 50 tests passing (`BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `DiagnosticIntegrationTest`: 6, `DiagnosticsTest`: 5, `SourceLocationTest`: 3, `LexerTest`: 9, `ListTokenStreamTest`: 9, `TokenTest`: 5, `TokenTypeTest`: 3).
-- **Not Yet Implemented:** `Parser`, concrete AST nodes, `SemanticAnalyzer`, concrete Java type handlers (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types), `AssemblyBackend` / `CodeGenerator` backend, and `CompilerPipeline`.
+- **Milestone 07 — Compiler Diagnostics & Error Handling:** Completed (`d6e6ea9`).
+- **Milestone 08 — Type Registry & Type Parser Management:** Completed.
+  - Implemented `TypeRegistry` (`rkcc.compiler.core`) managing `AbstractTypeParser` registrations, atomic multi-type registration, case-sensitive lookups, token-based resolution (primitive keywords + `String` identifier), duplicate/conflict rejection, and `DiagnosticCollector` integration.
+  - Extended `AbstractTypeParser` with `getSupportedTypeNames()` and added category classification helpers on `TypeCategory`.
+  - Verified with `mvn clean test`: 56 tests passing (`BuildVerificationTest`: 1, `AbstractTypeParserTest`: 9, `TypeRegistryTest`: 6, `DiagnosticIntegrationTest`: 6, `DiagnosticsTest`: 5, `SourceLocationTest`: 3, `LexerTest`: 9, `ListTokenStreamTest`: 9, `TokenTest`: 5, `TokenTypeTest`: 3).
+- **Not Yet Implemented:** `Parser`, concrete AST nodes, `SemanticAnalyzer`, production Java type handlers (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`, `String`, arrays, reference types — demonstrated only via test-only parsers in `TypeRegistryTest`), `AssemblyBackend` / `CodeGenerator` backend, and `CompilerPipeline`.

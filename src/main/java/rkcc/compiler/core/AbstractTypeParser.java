@@ -1,6 +1,8 @@
 package rkcc.compiler.core;
 
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import rkcc.compiler.ast.AstNode;
 import rkcc.compiler.lexer.TokenStream;
@@ -85,15 +87,28 @@ public abstract class AbstractTypeParser<T extends AstNode> {
     }
 
     /**
+     * Returns the immutable set of Java type names supported by this parser.
+     *
+     * <p>By default returns a singleton set containing {@link #getSupportedTypeName()}.
+     * Subclasses handling multiple related types (for example, an integral family)
+     * may override this method to advertise all supported type names.</p>
+     *
+     * @return non-empty set of canonical Java type names
+     */
+    public Set<String> getSupportedTypeNames() {
+        return Set.of(getSupportedTypeName());
+    }
+
+    /**
      * Checks whether this parser supports the specified Java type name.
      *
      * @param typeName Java type name to check (for example, {@code "int"} or {@code "int[]"})
-     * @return {@code true} if {@code typeName} matches this parser's type descriptor
+     * @return {@code true} if {@code typeName} is among this parser's supported type names
      * @throws IllegalArgumentException if {@code typeName} is null, blank, or syntactically invalid
      */
     public boolean supports(String typeName) {
         String normalized = validateTypeName(typeName);
-        return validatedTypeDescriptor().typeName().equals(normalized);
+        return validatedSupportedTypeNames().contains(normalized);
     }
 
     /**
@@ -266,6 +281,34 @@ public abstract class AbstractTypeParser<T extends AstNode> {
     }
 
     /**
+     * Validates and returns the non-empty, ordered set of type names advertised by
+     * {@link #getSupportedTypeNames()}.
+     *
+     * @return immutable validated set of type names
+     * @throws IllegalStateException if {@link #getSupportedTypeNames()} is null, empty,
+     *                               or contains invalid type names
+     */
+    protected final Set<String> validatedSupportedTypeNames() {
+        validatedTypeDescriptor();
+        Set<String> rawNames = getSupportedTypeNames();
+        if (rawNames == null || rawNames.isEmpty()) {
+            throw new IllegalStateException(
+                    getClass().getSimpleName() + ".getSupportedTypeNames() must not return null or empty");
+        }
+        Set<String> validated = new LinkedHashSet<>(rawNames.size());
+        for (String name : rawNames) {
+            try {
+                validated.add(validateTypeName(name));
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalStateException(
+                        getClass().getSimpleName() + ".getSupportedTypeNames() contains invalid type name: " + name,
+                        ex);
+            }
+        }
+        return Set.copyOf(validated);
+    }
+
+    /**
      * Validates that a Java type name is non-null, non-blank, and syntactically well-formed.
      *
      * @param typeName raw Java type name
@@ -309,13 +352,17 @@ public abstract class AbstractTypeParser<T extends AstNode> {
             }
             throw new IllegalArgumentException("AST node.typeDescriptor() must not return null Optional");
         }
-        if (nodeType.isPresent() && !expectedDescriptor.typeName().equals(nodeType.get().typeName())) {
-            String message = "AST node type '" + nodeType.get().typeName()
-                    + "' does not match parser type '" + expectedDescriptor.typeName() + "'";
-            if (fromParseResult) {
-                throw new IllegalStateException(message);
+        if (nodeType.isPresent()) {
+            String actualTypeName = nodeType.get().typeName();
+            if (!validatedSupportedTypeNames().contains(actualTypeName)
+                    && !expectedDescriptor.typeName().equals(actualTypeName)) {
+                String message = "AST node type '" + actualTypeName
+                        + "' does not match parser type '" + expectedDescriptor.typeName() + "'";
+                if (fromParseResult) {
+                    throw new IllegalStateException(message);
+                }
+                throw new IllegalArgumentException(message);
             }
-            throw new IllegalArgumentException(message);
         }
     }
 }

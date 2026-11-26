@@ -1,6 +1,6 @@
 # Compiler Architecture — RKCC JavaCompiler
 
-> **Status Notice (Milestone 07):** Shared essential contracts, `AbstractTypeParser`, `SourceLocation`, `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `Lexer`, and the centralized diagnostics subsystem (`DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, `CompilerException`) are implemented and unit-tested. **The concrete Parser, concrete AST nodes, Semantic Analyzer, concrete Type implementations, Assembly Generator, and CompilerPipeline are not implemented yet.** Refer to [PROGRESS.md](PROGRESS.md) for verified implementation status.
+> **Status Notice (Milestone 08):** Shared essential contracts, `AbstractTypeParser`, `TypeRegistry`, `SourceLocation`, `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `Lexer`, and centralized diagnostics (`DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, `CompilerException`) are implemented and unit-tested. **The concrete Parser, concrete AST nodes, Semantic Analyzer, production Type handlers (`byte`..`boolean`, `String`, arrays, reference types), Assembly Generator, and CompilerPipeline are not implemented yet.** Refer to [PROGRESS.md](PROGRESS.md) for verified implementation status.
 
 ## 1. Overall Compiler Architecture
 
@@ -110,33 +110,27 @@ flowchart LR
 
 ## 5. Implemented Essential Contracts & Proposed Future Signatures
 
-> **Milestone 07 Update:** Centralized compiler diagnostics are now implemented in `rkcc.compiler.diagnostics` (`DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, `CompilerException`). `LexicalException` and `UnexpectedTokenException` extend `CompilerException`, and `Lexer` / `TokenStream` provide `DiagnosticCollector`-integrated overloads. Concrete `Parser`, `SemanticAnalyzer`, `CodeGenerator`, and `CompilerPipeline` remain planned for upcoming milestones.
+> **Milestone 08 Update:** Added `TypeRegistry` in `rkcc.compiler.core` (placed alongside `AbstractTypeParser` so `rkcc.compiler.types` stays dependency-free and acyclic), added `AbstractTypeParser.getSupportedTypeNames()` for multi-type parsers, and added `isPrimitiveCategory()` / `isReferenceCategory()` / `isVoid()` helpers on `TypeCategory`. Production type parsers remain unimplemented and are demonstrated strictly via test-only implementations in `TypeRegistryTest`.
 
-### Implemented Diagnostics & Lexical Contracts (Milestones 03–07)
+### Implemented Type Registry, Diagnostics & Lexical Contracts (Milestones 03–08)
 
-- **`rkcc.compiler.diagnostics.DiagnosticSeverity`**: `ERROR`, `WARNING`, `INFO` with `isError()`, `isWarning()`, `isInfo()`.
-- **`rkcc.compiler.diagnostics.CompilerPhase`**: `LEXICAL_ANALYSIS`, `SYNTAX_ANALYSIS`, `SEMANTIC_ANALYSIS`, `TYPE_CHECKING`, `CODE_GENERATION`, `INTERNAL`.
-- **`rkcc.compiler.diagnostics.DiagnosticCode`**: Stable code registry (`LEX001`–`LEX006`, `SYN001`–`SYN004`, `SEM001`–`SEM006`, `GEN001`–`GEN003`, `INT001`) with `code()`, `defaultPhase()`, `defaultDescription()`, and `fromCode(String)`.
-- **`rkcc.compiler.diagnostics.Diagnostic`**: Immutable record `(code, severity, phase, message, Optional<SourceLocation>, Optional<String> details)` with factory helpers `error(...)`, `warning(...)`, `info(...)`.
-- **`rkcc.compiler.diagnostics.DiagnosticCollector`**: Session-scoped accumulator preserving insertion order, exposing `report`, `reportError`, `reportWarning`, `reportInfo`, `getDiagnostics`, `getErrors`, `getWarnings`, `getInfoDiagnostics`, `getBySeverity`, `size`, `countBySeverity`, `hasErrors`, `hasWarnings`, `isEmpty`, and `clear`, returning unmodifiable snapshots.
-- **`rkcc.compiler.diagnostics.DiagnosticFormatter`**: Renders `SEVERITY [CODE] (Phase) at line L, column C`, message, optional details, and tab/CRLF/LF/EOF-aware source snippet with caret (`^`) alignment via `format(Diagnostic)`, `format(Diagnostic, String)`, and `formatAll(Collection<Diagnostic>, String)`.
-- **`rkcc.compiler.diagnostics.CompilerException`**: Base runtime exception wrapping a structured `Diagnostic` and optional `Throwable` cause; extended by `LexicalException` and `UnexpectedTokenException`.
-- **`rkcc.compiler.lexer.Lexer`**: Stateless lexical scanner exposing `tokenize(String)` / `tokenize(String, DiagnosticCollector)` and `tokenizeToStream(String)` / `tokenizeToStream(String, DiagnosticCollector)`.
-- **`rkcc.compiler.diagnostics.SourceLocation`**, **`rkcc.compiler.lexer.TokenType` / `Token` / `TokenStream` / `ListTokenStream`**, **`rkcc.compiler.types.TypeCategory` / `TypeDescriptor`**, **`rkcc.compiler.ast.AstNode`**, and **`rkcc.compiler.core.AssemblyGenerationContext` / `AssemblyBackend`**: Shared compiler stage contracts from Milestones 03–06.
+- **`rkcc.compiler.core.TypeRegistry`**: Session-scoped registry mapping case-sensitive Java type names to `AbstractTypeParser<?>` instances:
+  - **Registration & Validation:** `register(AbstractTypeParser<?>)`, `register(String, AbstractTypeParser<?>)`, `register(Collection<String>, AbstractTypeParser<?>)`, and `register(AbstractTypeParser<?>, DiagnosticCollector)`. Validates parser descriptors/names before modifying internal state (atomic multi-type registration) and rejects duplicates/conflicts with `CompilerException` (`INT_INTERNAL_COMPILER_ERROR`, `CompilerPhase.INTERNAL`).
+  - **Resolution & Lifecycle:** `resolve(String)`, `resolve(String, DiagnosticCollector)`, `resolveRequired(String)`, `resolve(Token)`, `resolve(Token, DiagnosticCollector)`, `supports(String)`, `supports(Token)`, `unregister(String)`, `getRegisteredTypes()`, `getRegisteredParsers()`, `size()`, `isEmpty()`.
+  - **Token-Based Resolution:** Maps Java primitive keywords (`BYTE`..`VOID`) and `IDENTIFIER("String")` to registered parsers while leaving arbitrary identifiers unresolved; reports `TYP_UNSUPPORTED_TYPE` preserving `Token.location()` when a `DiagnosticCollector` is supplied.
+- **`rkcc.compiler.core.AbstractTypeParser<T extends AstNode>`**: Now exposes `getSupportedTypeNames()` (defaulting to `Set.of(getSupportedTypeName())`) so family parsers (e.g., `byte`/`short`/`int`/`long`) integrate cleanly with `TypeRegistry`.
+- **`rkcc.compiler.diagnostics.*`**: `SourceLocation`, `DiagnosticSeverity`, `CompilerPhase`, `DiagnosticCode`, `Diagnostic`, `DiagnosticCollector`, `DiagnosticFormatter`, and `CompilerException`.
+- **`rkcc.compiler.lexer.*`**: `TokenType`, `Token`, `TokenStream`, `ListTokenStream`, `UnexpectedTokenException`, `Lexer`, and `LexicalException`.
+- **`rkcc.compiler.types.TypeCategory` & `TypeDescriptor`**, **`rkcc.compiler.ast.AstNode`**, and **`rkcc.compiler.core.AssemblyGenerationContext` / `AssemblyBackend`**: Shared compiler stage contracts.
 
-### Diagnostics Integration Usage Example
+### TypeRegistry Integration Usage Example (Test / Future Module Pattern)
 
 ```java
-DiagnosticCollector diagnostics = new DiagnosticCollector();
-DiagnosticFormatter formatter = new DiagnosticFormatter();
-Lexer lexer = new Lexer();
-String source = "int a = 10 @ 20;";
+TypeRegistry registry = new TypeRegistry();
+registry.register(customIntParser); // registers e.g. byte, short, int, long atomically
 
-try {
-    lexer.tokenizeToStream(source, diagnostics);
-} catch (LexicalException ex) {
-    System.out.println(formatter.format(diagnostics.getErrors().get(0), source));
-}
+DiagnosticCollector diagnostics = new DiagnosticCollector();
+Optional<AbstractTypeParser<?>> parser = registry.resolve(token, diagnostics);
 ```
 
 ### Proposed Future Contracts (Not Yet Implemented)
@@ -309,7 +303,7 @@ types            -> (no internal compiler dependencies)
 diagnostics      -> (no internal compiler dependencies; owns SourceLocation)
 lexer (contract) -> diagnostics (Token uses SourceLocation; TokenType, TokenStream)
 ast (contract)   -> types
-core             -> types, lexer (Token/TokenStream), ast (AstNode)
+core             -> diagnostics, types, lexer (Token/TokenType/TokenStream), ast (AstNode)
 parser           -> diagnostics, core, lexer, ast
 semantic         -> diagnostics, core, ast, types
 codegen          -> diagnostics, core (AssemblyBackend, AssemblyGenerationContext), types, ast, semantic
